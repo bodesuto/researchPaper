@@ -683,6 +683,24 @@ Trong bài tích hợp, `cross-domain generalization` không phải headline cla
 | Giai đoạn 3 | Safe Alignment | Dual-head reward model, simulated preference, Lagrangian constrained optimization | IEEE 30/118/300, EVN nếu phù hợp | Giảm safety violation; utility không sụp đổ; reward model học ổn định | Chương alignment + bản thảo bài 3 |
 | Giai đoạn 4 | Closed-Loop CAMAS | Interface standardization, feedback protocol, full-system integration | Maintenance, FJSP, smart grid | Chứng minh closed-loop gain; kiểm chứng feedback semantics; tích hợp thành luận điểm thống nhất | Chương tích hợp + bản thảo bài 4 |
 
+### 11.1.1. Bảng khóa cứng giữa câu hỏi nghiên cứu, phương pháp và đầu ra luận án
+
+| RQ | Vấn đề cần trả lời | Giả thuyết kiểm chứng | Phương pháp lõi | Metric headline | Bài báo đầu ra | Chương luận án |
+|---|---|---|---|---|---|---|
+| RQ1 | Tác nhân có thể giảm hallucination nếu nhận thức được neo vào dữ liệu vận hành thực hay không? | H1: dual-memory có observability grounding giúp giảm hallucination và tăng factual consistency so với semantic-only/retrieval-only | Dual-memory knowledge graph, temporal retrieval, conflict checking, grounded state estimation | Hallucination rate, evidence grounding score, factual consistency, task success | Paper 1: Perception | Chương 1 về grounded perception |
+| RQ2 | Điều phối đa tác nhân có thể thích ứng tốt hơn trong scheduling động nếu vừa phân cấp vừa mô hình hóa phụ thuộc động hay không? | H2: hierarchical coordination với graph encoder và context adaptation cải thiện chất lượng scheduling dưới nhiễu động | Hierarchical MARL, heterogeneous/temporal graph encoder, LRMP, MD-MDP | Makespan, tardiness, utilization, perturbation robustness | Paper 2: Coordination | Chương 2 về adaptive coordination |
+| RQ3 | Alignment có thể vừa học utility vừa bảo đảm constraint trong smart grid hay không? | H3: tách utility head và safety head giúp giảm violation mà vẫn giữ utility chấp nhận được | Dual-head reward model, simulated expert preference, human validation subset, Lagrangian constrained policy optimization | Safety violation rate, constraint satisfaction rate, return/profit, disturbance robustness | Paper 3: Alignment | Chương 3 về safe alignment |
+| RQ4 | Việc đóng vòng ba module có tạo ra lợi ích hệ thống vượt open-loop và tích hợp từng cặp hay không? | H4: closed-loop CAMAS tạo closed-loop gain dương với overhead tính toán chấp nhận được | Standardized interfaces, mandatory feedback, event-triggered re-grounding, closed-loop protocol | Closed-loop gain, end-to-end performance, safety, efficiency, latency overhead | Paper 4: Integration | Chương 4 về closed-loop architecture |
+
+### 11.1.2. Điều kiện bảo vệ logic luận án trước hội đồng
+
+- Luận án phải được đọc theo trục `bài toán tổng thể -> bốn RQ -> bốn module/bài báo -> một luận điểm kiến trúc thống nhất`, không được trình bày như bốn ý tưởng rời rạc.
+- Mỗi chương phải trả lời đúng một câu hỏi nghiên cứu trung tâm, có giả thuyết rõ, có metric headline rõ, và có tiêu chí dừng rõ.
+- Paper 1, 2, 3 không có nhiệm vụ chứng minh toàn bộ CAMAS; chúng có nhiệm vụ tạo ra các khối bằng chứng độc lập, đủ mạnh, đủ hẹp và đủ publishable.
+- Paper 4 không có nhiệm vụ lặp lại novelty sâu của ba paper module; nhiệm vụ duy nhất là chứng minh `architectural loop closure` có giá trị thực nghiệm.
+- Nếu một module chưa đạt tiêu chí kiểm chứng tối thiểu thì không nên mở rộng scope sang module sau, vì như vậy sẽ làm yếu cả chuỗi lập luận của luận án.
+- Toàn bộ proposal cần giữ cách viết theo logic `vấn đề nghiên cứu -> gap -> insight -> phương pháp -> kiểm chứng`, tránh chuyển sang logic kể tính năng của hệ thống.
+
 ### 11.2. Nguyên tắc triển khai lộ trình
 
 Lộ trình nghiên cứu của luận án tuân theo hai nguyên tắc. Thứ nhất, mỗi giai đoạn chỉ được chuyển sang giai đoạn kế tiếp khi đã đạt tiêu chí kiểm chứng tối thiểu ở giai đoạn hiện tại. Thứ hai, mọi kết quả trung gian đều phải phục vụ trực tiếp cho luận điểm tổng thể của luận án, không phát triển các nhánh nghiên cứu tách rời khỏi kiến trúc CAMAS. Nhờ đó, tiến độ nghiên cứu được kiểm soát tốt hơn và luận án giữ được sự thống nhất từ đầu đến cuối.
