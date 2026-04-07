@@ -1,0 +1,3081 @@
+Hierarchical optimization of virtual power plants via sequential 
+Game-Based Multi-Agent reinforcement learning
+Ziran Peng *
+, Tao Heng
+School of Transportation and Electrical Engineering, Hunan University of Technology, Zhuzhou, China
+A R T I C L E  I N F O
+Keywords:
+Multi-agent reinforcement learning
+Nash equilibrium
+Virtual Power Plant
+Sequential Game
+Hierarchical reinforcement learning
+Hybrid Strategy Optimization
+A B S T R A C T
+The integration of distributed energy resources (DERs) in virtual power plants (VPPs) is a critical enabler of low- 
+carbon power system transformation; however, market uncertainty and conflicts among multiple decision- 
+making agents pose major challenges for efficient scheduling. To address these issues, this paper proposes a 
+hierarchical multi-agent reinforcement learning framework based on a hybrid-strategy sequential game. A novel 
+dynamic role reduction mechanism is established for both supply and demand sides, enabling the aggregation of 
+large-scale and heterogeneous VPP resources into a compact dual-agent sequential game representation. The 
+framework employs a two-layer architecture. At the upper layer, hybrid pricing strategies are optimized through 
+a sequential game where the supply side acts as the leader to maximize generation profits, and the demand side 
+serves as the follower by adaptively adjusting load levels, achieving a robust subgame perfect Nash equilibrium 
+despite conflicting objectives. In the lower layer, the scheduling task is formulated as a constrained Markov 
+game, with Lagrangian relaxation incorporated to handle power balance, temporal coupling, and resource 
+competition constraints, while quantifying both exogenous and endogenous uncertainties for adaptability in real- 
+time market environments. We introduce the Sequential Game-based Multi-Agent Deep Deterministic Policy 
+Gradient (SG-MADDPG) algorithm, which integrates the hierarchical game into an enhanced Multi-Agent Deep 
+Deterministic Policy Gradient (MADDPG) framework. This algorithm features a graph neural network-enhanced 
+adversarial dual-path critic to capture asymmetric supply–demand interactions and mitigate environmental non- 
+stationarity, alongside a distributionally robust optimization (DRO) mechanism to improve training stability and 
+policy robustness. Simulation results on a real-world VPP case demonstrate that the proposed approach increases 
+overall profits by 14.7%-25.3%, reduces default risk by approximately 65%, and enhances deployable opera­
+tional profits by more than 20%. Compared to centralized model predictive control (MPC) and traditional 
+Stackelberg game-based methods, our framework exhibits superior performance, confirming its effectiveness and 
+applicability in uncertain electricity market environments.
+1. Introduction
+1.1. Research Background and Significance
+Under the global consensus of the “Dual Carbon” goals, the power 
+system is transitioning from traditional fossil fuel dominance to clean 
+energy. As an emerging energy aggregation model (Zhou et al., 2025; Lin 
+et al., 2023; Yao et al., 2024; Yang et al., 2025; Meng et al., 2025), the 
+virtual power plant (VPP) integrates heterogeneous distributed energy 
+resources (DERs)—such as distributed photovoltaic (PV), wind power, 
+energy storage systems, and controllable loads—into a coordinated 
+virtual entity through advanced information and communication 
+technologies and control algorithms. This enables the unified dispatch 
+and optimization of heterogeneous resources (Xu et al., 2024; Lin et al., 
+2025) and has emerged as a key facilitator of the low-carbon transition 
+(Liu et al., 2025; Liu et al., 2024; Kim and Kim, 2023).
+Traditional VPP scheduling optimization methods emphasize math­
+ematical modeling and solution efficiency, realizing power allocation, 
+frequency regulation, and cost minimization through precise physical or 
+economic models (Jendoubi and Bouffard, 2023; Zhang et al., 2021). For 
+example, in Ref. (Guo et al., 2025) proposes a collaborative power 
+control strategy for VPPs based on multi-agent systems that employs 
+consensus algorithms to defend against cyberattacks, homomorphic 
+encryption to protect privacy, and an event-triggered mechanism to 
+* Corresponding author.
+E-mail address: pengziran@hut.edu.cn (Z. Peng). 
+Contents lists available at ScienceDirect
+Expert Systems With Applications
+journal homepage: www.elsevier.com/locate/eswa
+https://doi.org/10.1016/j.eswa.2026.131263
+Received 16 December 2025; Received in revised form 14 January 2026; Accepted 16 January 2026  
+Expert Systems With Applications 310 (2026) 131263 
+Available online 20 January 2026 
+0957-4174/© 2026 Elsevier Ltd. All rights are reserved, including those for text and data mining, AI training, and similar technologies. 
+
+reduce the communication burden. Nevertheless, this approach neglects 
+electricity market uncertainty and multi-stakeholder conflicts of inter­
+est. In Ref. (Song et al., 2025) developed a mixed-integer nonlinear 
+programming (MINLP) model to optimize the operational strategy of a 
+wind-solar-thermal generation system assisted by shared energy storage 
+in joint electricity-carbon markets. However, this method relies heavily 
+on accurate physical models and exhibits limited adaptability to real- 
+time uncertainty. Similarly, Ref. (Thangavelu et al., 2025) constructed 
+an adaptive AI energy system model for a cryo-polygeneration plant 
+(CPP) using adaptive AI to predict the distributed energy performance 
+and optimize multi-energy coordination. Its limitation lies in its high 
+computational complexity, particularly during the AI adaptive update 
+phase.
+Game-theoretic methods focus on multi-agent interactions and 
+equilibrium solutions, modeling strategic interactions among pro­
+sumers, operators, and the grid to achieve Nash equilibrium or Stack­
+elberg game equilibrium for optimizing resource allocation and 
+efficiency of the markets. In Ref. (Alam et al., 2024) introduced a 
+blockchain-based peer-to-peer energy trading framework, utilizing 
+Mixed Integer Linear Programming (MILP) to optimize prosumer profits 
+and employing Ethereum smart contracts to achieve decentralized co­
+ordination of DERs. Results indicate that this framework enhances grid 
+stability and renewable energy utilization. However, the method does 
+not adequately account for the dynamic process of sequential games and 
+real-world market uncertainties. Ref. (Zhou et al., 2023) proposed a bi- 
+level optimization model for an urban VPP, where the lower level con­
+siders user satisfaction based on Incentive-Based Demand Response 
+(IBDR), and the upper level optimizes generation dispatch and market 
+transactions. Results show that the model supports supply–demand 
+balance and minimizes costs. Nevertheless, it assumes a complete in­
+formation game, thereby neglecting mixed strategies under uncertain 
+environments. In (Yin and Ye, 2025) a distributed multi-objective Afri­
+can Vulture Optimization Algorithm(AVOA), combined with deep neu­
+ral networks to accelerate optimization. Tests on 118-bus and 1790-bus 
+systems, this algorithm reduced carbon emissions by 3.5%-9.95% and 
+costs by 2.16%-4.8%. Its limitation lies in the strong static assumptions 
+and weak adaptability to dynamic uncertainties.
+Reinforcement learning (RL) methods emphasize adaptation to un­
+certainty and learning optimal policies through agent-environment in­
+teractions to achieve robust scheduling in dynamic environments. In 
+Ref. (H¨aberle et al., 2023) proposed hierarchical multi-agent deep 
+reinforcement learning (HMADRL), which adopts a centralized training 
+with decentralized execution (CTDE) paradigm to handle mutual deci­
+sion exclusivity and introduces a hot experience pool to reduce explo­
+ration. Simulations show the improved reliability of multi-energy multi- 
+microgrid systems; however, the absence of game-equilibrium guidance 
+leads to unstable policies in multi-agent, non-stationary environments. 
+Ref. (Zhang et al., 2025) developed an active distribution network 
+scheduling method based on a safe reinforcement learning framework to 
+ensure compliance with distribution network constraints. Comparisons 
+demonstrate superiority over existing safe reinforcement learning (SRL) 
+and classical optimization methods; however, they neglect multi-agent 
+game non-stationarity and fail to handle dynamic inter-agent conflicts 
+effectively. In Ref. (Xu et al., 2024) proposed a robust preventive- 
+corrective security-constrained Optimal Power Flow (OPF) model and 
+addressed VPP faults using a Lagrangian-based soft actor (L-SAC) algo­
+rithm. Tests on IEEE systems show improved computational efficiency 
+and reliability; however, they do not consider sequential games under 
+mixed strategies and struggle with multi-round interactions under 
+uncertainty.
+Recent advancements in Deep Reinforcement Learning (DRL) have 
+further stimulated the practical application of machine learning 
+methods in energy systems. In Ref. (Roy and Bhaduri, 2023) developed a 
+Dense SPH-YOLOv5 model, which integrates a DenseNet module into 
+the backbone network to enhance the retention and reuse of critical 
+feature information. Additionally, extra feature fusion layers and a swin- 
+Transformer prediction head (SPH) were incorporated, leveraging 
+advanced self-attention mechanisms to reduce the algorithm's compu­
+tational complexity. Ref. (Jiang et al., 2022) introduced a semi- 
+supervised learning framework based on a multi-graph cooperative 
+neural network, improving graph representation by integrating com­
+plementary multi-graph information, achieving classification accuracy 
+5–10% higher than baselines on multi-view datasets. The research on 
+such advanced DRL models has demonstrated significant effectiveness 
+for existing energy applications. In energy-specific applications, 
+Ref. (Guo et al., 2025) proposed an evolutionary DRL algorithm, Cross- 
+Entropy Method (CEM)-MADDPG, for electric vehicle thermal man­
+agement, which enhances robustness through cross-entropy and reduces 
+energy consumption by 19.8% compared to rule-based methods. Simi­
+larly, Ref. (Li et al., 2025) applied the Deep Deterministic Policy 
+Gradient (DDPG) algorithm from DRL for the multi-objective optimi­
+zation of an integrated electricity-gas-heat energy system, improving the 
+reward value by 6.09% over proximal policy optimization (PPO), 
+thereby verifying reductions in cost and emissions. These DRL ad­
+vancements motivate the integration of cutting-edge DL techni­
+ques—such as attention mechanisms, graph cooperation, and 
+evolutionary reinforcement—to enhance the practicality of machine 
+learning in VPP optimization by addressing noisy data, multi-view 
+representations, and multi-objective robustness.
+To sum up, traditional optimization techniques are heavily biased 
+towards model fidelity, game theoretical techniques are frequently 
+biased towards restrictive static assumptions, and RL techniques are 
+susceptible to non-stationary environments. Although recent DRL de­
+velopments have made significant improvements in the feature extrac­
+tion ability and robustness in aspects such as damage detection and 
+energy system optimization, they have not been successfully extended to 
+tackle sequential game dynamics in large-scale VPPs (Guan et al., 2025; 
+Wei et al., 2025; Srivastava et al., 2024; Upadhayay et al., 2024; Xu Q, 
+Su Z, Li P, et al. Cooperative Energy Provisioning Services with Virtual 
+Power Plants in Smart Grid Internet of Things: A Coalition-Stackelberg 
+Game Approach[J]. IEEE Internet of Things Journal, 2025). Existing 
+methods tend to work well under deterministic scenarios, but show 
+significant limitations when faced with uncertainty, heavy computa­
+tional load and scalability issues, which constrain their use to large- 
+scale, dynamic VPP scenarios. Moreover, these approaches have prob­
+lems in solving collaborative conflicts between multiple agents (Zhang 
+et al., 2025; Liu et al., 2022; Fan et al., 2025; Lu et al., 2023; Fan et al., 
+2023). Overall, most previous research takes a single methodological 
+view and comprehensive frameworks that closely integrate game theo­
+retic modeling with learning-based decision making are still lacking.
+1.2. Research gaps and contributions
+In summary, although there have been some significant de­
+velopments in the literature, there are still some critical gaps. Existing 
+studies often overlook the role of mixed-strategy sequential games in 
+uncertain electricity market environments, where multi-agent ap­
+proaches are often limited to pure strategies or synchronous decision- 
+making. This limitation makes it impossible to accurately model dy­
+namic interactions between supply-side leaders and demand-side fol­
+lowers, leading to deviations from globally optimal solutions (Dai et al., 
+2025; Chen et al., 2022; Golpîra and Marinescu, 2024; Liu et al., 2023; 
+Shao et al., 2024). Also, most research assumes a fixed agent population 
+or only considers single-level optimization and does not capture stra­
+tegic interactions across multiple hierarchical levels. Multi-Agent RL 
+(MARL) techniques also face serious challenges such as environmental 
+non-stationarity and training instability (Zhang et al., 2025; Zhou and 
+Preindl, 2023). Standard algorithms, such as Multi-Agent Deep Deter­
+ministic Policy Gradient (MADDPG), can converge to local optima, and 
+do not exploit the full benefits of Nash equilibrium guidance or repre­
+sentational benefits of Graph Neural Networks (GNNs) (Chen et al., 
+2024; Wu et al., 2024).
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+2 
+
+To address these gaps, a bi-level optimization framework based on 
+mixed-strategy sequential games is proposed within a MARL paradigm. 
+The main contributions of this study are summarized as follows:
+1) Hierarchical Hybrid-Strategy Framework for Large-Scale VPPs: 
+This study addresses the shortcomings of traditional VPP scheduling 
+methods in coordinating large-scale DERs and resolving multi-agent 
+conflicts by proposing a hierarchical optimization framework groun­
+ded on hybrid-strategy sequential games and MARL. A novel dynamic 
+role-reduction mechanism is proposed to aggregate heterogeneous re­
+sources into two agent types, the supply side and the load side. These 
+agents interact non-cooperatively through the electricity price signals. 
+At the upper level, the supply-side agents play the role of leaders to 
+maximize profit through pricing strategies, and the load-side agents play 
+the role of followers to dynamically adjust demand. This interaction 
+leads the system to a subgame-perfect Nash equilibrium and takes into 
+account multi-party conflicts. Unlike the traditional Stackelberg for­
+mulations, the proposed approach eliminates assumptions of pure stra­
+tegies and perfect information, which greatly enhances the scalability 
+and adaptability to scenarios with tens of thousands of aggregated 
+resources.
+2) Constrained Markov Game and DRO for Lower-Level Scheduling: 
+The lower-level scheduling is formulated as a constrained Markov game, 
+with constraints such as power balance, temporal coupling, and resource 
+competition handled via Lagrangian relaxation. Market disturbances 
+and internal–external uncertainties are explicitly considered. By 
+embedding this game into an improved MADDPG algorithm, we design a 
+Nash equilibrium-oriented differentiated reward function, which guides 
+multi-agent policies to converge to a Nash equilibrium while ensuring 
+consistent expected returns across different pure strategies. This design 
+effectively mitigates the poor policy convergence of traditional MARL in 
+non-stationary environments.
+3) Robustness to Non-Stationarity and Market Uncertainty: To 
+further address environmental non-stationarity and market uncertainty, 
+this study incorporates a Graph Neural Network-enhanced Implicit 
+Adversarial Dual-path Critic (GIADC) structure at the upper level to 
+implicitly model the asymmetric dynamic interactions between supply 
+and demand, thereby decoupling the impact of environmental varia­
+tions. At the lower level, a Distributionally Robust Optimization (DRO) 
+mechanism is integrated to enhance robustness against model errors and 
+volatile market conditions.
+Through these innovations, the proposed framework demonstrates 
+distinct advantages in coordinating heterogeneous resources, managing 
+non-cooperative game interactions, and coping with market un­
+certainties in VPPs. It effectively overcomes the limitations of traditional 
+centralized scheduling, classical Stackelberg games, and basic MARL 
+approaches in terms of scalability, multi-agent non-stationarity, and 
+policy convergence, offering an efficient and reliable solution for 
+optimal VPP scheduling in large-scale, dynamic market environments. 
+Experimental results show that compared with centralized MPC opti­
+mization and traditional Stackelberg benchmark, it improves global 
+profit by 14.7%-25.3%, reduces default risk by 65%, and increases profit 
+by more than 20% in actual deployment.
+2. MARL two-layer scheduling decision framework
+2.1. VPP distributed resource characteristics analysis
+A VPP aggregates various resources distributed across different lo­
+cations using information technology to form a virtual, unified “power 
+plant.” Through intelligent coordination and optimization, it achieves 
+centralized control and scheduling of distributed resources, thereby 
+participating in the electricity market, grid balancing, and energy 
+trading as a single entity. The characteristics of the energy resources in a 
+VPP are analyzed as follows:
+1) Distributed PV: As an important clean energy source in a new 
+type of power system, PV use solar radiation as the primary energy 
+source, offering advantages such as renewability, low carbon emissions, 
+and local consumption. Their output power is affected by light intensity, 
+meteorological conditions, and installation angle, which exhibit inter­
+mittency and volatility. This makes it difficult to achieve a continuously 
+rated power output, posing challenges to the stable operation of the 
+power grid and power balance. Therefore, it is necessary to combine 
+energy storage and smart grid technologies to mitigate this instability. 
+Distributed PV is categorized as the “supply side.” The mathematical 
+model is formulated as follows: 
+Ppv
+t = Ppv−T
+L(t)
+LSTC
+[
+fpv
+(
+T(t) −TSTC + 30⋅L(t)
+LSTC
+)
++ 1
+]
+(1) 
+where Ppv t is the photovoltaic power at time t; Ppv-T is the rated output 
+power of (TSTC = 25◦C, LSTC = 1000 W/m2) under standard test con­
+ditions; fpv is the temperature coefficient of the output power; T(t) is the 
+ambient temperature; and L(t) is the solar irradiance. The PV output 
+power range satisfies the following constraints:Pt
+pv,min⩽Pt
+pv⩽Pt
+pv,max.
+2) Industrial load: Industrial load refers to the electrical energy 
+consumed to drive the operation of industrial equipment. Electricity 
+demand can be adjusted by controlling the production equipment and 
+rearranging production schedules, thereby achieving energy savings and 
+efficiency improvements. Specifically, this behavior manifests in two 
+ways: active load reduction during grid-peak periods to conserve energy 
+and intentional load increase during valley periods to maintain pro­
+duction levels, thereby lowering overall electricity costs. Accordingly, 
+the industrial load is defined as the “load side.” For flexible shiftable 
+industrial loads, the electricity market adopts a subsidy-based pricing 
+strategy for energy scheduling. The mathematical model of load shifting 
+based on the subsidy price is as follows: 
+⎧
+⎪
+⎪
+⎪
+⎪
+⎨
+⎪
+⎪
+⎪
+⎪
+⎩
+PMax,t
+L,dem,Mov =
+[
+1̅̅̅̅̅
+2π
+√
+θ
+exp
+(
+−(πt −∂)2
+2θ2
+) ]
+⋅Pt
+L,dem
+∂= 0.25⋅πt −πt,min
+πt,max −πt,min
++ 0.25, θ = 0.05
+(2) 
+where PMax,t L,dem,Mov represents the maximum load transfer power 
+of the industrial load in the VPP at time t within the scheduling cycle; Pt 
+L,dem is the actual power consumption of the industrial load; πt is the 
+subsidy electricity price given by the grid; πt,min and πt,max represent the 
+minimum and maximum values of the subsidy electricity price, 
+respectively.
+For a flexible reducible industrial load, the maximum allowable load 
+reduction at any given moment is closely related to the capacities of PV 
+production, EVs, energy storage systems, and the grid-connected 
+scheduling center within the VPP at that specific moment. The upper 
+limits of the flexible, reducible load and negative spinning reserve ca­
+pacity were calculated as follows: 
+⎧
+⎪
+⎨
+⎪
+⎩
+∑
+L,dem
+RDown,t
+Cut
+⩾cdown
+pv
+⋅Pt
+pv + Pt
+ESS,out + Pt
+EV,i,out + Pt
+sch toL
+PMax,t
+L,dem,Cut = cCut⋅RDown,t
+Cut
+(3) 
+where Rdown,t Cut is the negative spinning reserve capacity of the in­
+dustrial load, cdown pv is the negative spinning reserve capacity coef­
+ficient of the distributed PVs for handling load forecasting deviations, 
+PMax,t L,dem,Cut is the maximum load reduction power that the indus­
+trial load can execute in the VPP, and cCut is the flexible load reduction 
+coefficient.
+Constraints of load transfer: 
+⎧
+⎪
+⎨
+⎪
+⎩
+−PMax,t
+L,dem,Mov⩽Pt
+L,dem,Mov⩽PMax,t
+L,dem,Mov, t ∈[1, T]
+∫T
+1
+Pt
+L,dem,Movdt = 0
+(4) 
+where the first equation indicates that the transfer power (positive for 
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+3 
+
+upward adjustment and negative for downward adjustment) at any time 
+is subject to upper and lower bound constraints. The second equation is 
+the energy conservation constraint, which means that ‘the electricity 
+shifted away during the daytime must be compensated at night’ with the 
+net adjustment amount being zero over the entire optimization horizon.
+Constraints for load reduction: 
+−PMax,t
+L,dem,Cut⩽Pt
+L,dem,Cut⩽PMax,t
+L,dem,Cut, t ∈[1, T]
+(5) 
+where ∑
+tPt
+L,dem,CutΔt⩽EMax
+Cut 
+serves as the limit for the cumulative 
+reducible energy that can be tolerated. PMax,t L,dem,Mov is the upper 
+limit of the flexible load transfer amount calculated using Equation (3), 
+PMax,t L,dem,Cut is the upper limit of the flexible load reduction amount 
+calculated using Equation (4).
+3) Energy storage unit: The energy storage unit refers to various 
+dispersed household energy storage systems or small-scale dedicated 
+energy storage devices. To improve scheduling efficiency, energy stor­
+age units within a certain area can be aggregated through the network 
+and treated as a unified aggregated scheduling resource. When an en­
+ergy storage unit supplies power to the grid, it can be regarded as the 
+“supply side;” when it replenishes energy, it can be regarded as the “load 
+side. ” The energy storage unit achieves revenue maximization by 
+storing energy during low-price periods and releasing it during high- 
+price periods. The power output/charging state of the energy storage 
+unit relies on the state of charge (SOC), rated capacity, and charging/ 
+discharging efficiency. The dynamic input/output is expressed as 
+follows: 
+Pt
+ESS =
+{
+Pt
+ESS,out(Discharge, P > 0)
+Pt
+ESS,in(Charge, P < 0)
+(6) 
+where Pt ESS,out and Pt ESS,in are the charging and discharging powers 
+of the energy storage unit, respectively.
+The battery state at the current moment is updated based on the 
+battery state at the previous moment and the charging/discharging sit­
+uation within the current time step. Therefore, the variation in the SOC 
+of the energy storage unit over time is expressed as follows: 
+SOCt
+state = SOCt−1
+stateλsoc +
+(
+Pt
+ESS,inηESS −
+1
+ηESSPt
+ESS,out
+)
+Δt
+EESS
+(7) 
+where SOCt state represents the battery SOC at the current time t; λsoc is a 
+regulation factor that affects the sensitivity of SOC variation; and ηESS 
+represents the efficiency of the energy storage system. 
+{
+Pt
+ESS,in,max⩽Pt
+ESS⩽Pt
+ESS,out,max
+SOCmin⩽SOCt
+state⩽SOCmax
+(8) 
+4) EVs: The battery capacity of a typical household EV ranges from 
+15 kWh to 100 kWh. By aggregating EVs, a VPP can treat them as 
+flexible power sources to inject electricity into the grid to support peak 
+demand or as flexible loads to consume surplus electricity, thereby 
+achieving a demand response. Therefore, when an electric vehicle sup­
+plies power to the grid, it is defined as the “supply side;” when it is 
+charging, it is defined as the “load side.”.
+Its dynamic power input/output is expressed as follows: 
+Pt
+EV,i =
+{
+Pt
+EV,i,out(Discharge, P > 0)
+Pt
+EV,i,in(Charge, P < 0)
+(9) 
+where Pt EV,i,out and Pt EV,i,in are the charging and discharging powers 
+of the EV, respectively.
+The energy renewal equation for EV batteries is: 
+SOCt
+EV,i =
+⎧
+⎪
+⎪
+⎪
+⎪
+⎨
+⎪
+⎪
+⎪
+⎪
+⎩
+SOCt−1
+EV,i + ηinPt
+EV,i,outΔt
+Qe
+(Charge)
+SOCt
+EV,i + Pt
+EV,i,inΔt
+ηoutQe
+(Discharge)
+(10) 
+In the formula, SOCt EV,i represents the remaining energy of the 
+battery of the i EV at time t. ηin and ηout represent the charge/discharge 
+efficiency. Qe represents the rated capacity of the battery.
+The remaining capacity of EV batteries and their charging/dis­
+charging must satisfy the upper and lower limits to avoid overcharging/ 
+discharging. 
+{
+Et
+EV,i,min⩽Et
+EV,i⩽Et
+EV,i,max
+Pt
+EV,in,max⩽Pt
+EV,i⩽Pt
+EV,out,max
+(11) 
+5) VPP grid connection interface with external power grid: At 
+the physical connection level, individual distributed resources of the 
+VPP are electrically connected to the distribution network through their 
+own access devices, and the connection point is the traditional “grid 
+connection point” or “point of common coupling. ” This point serves as 
+the physical gateway for bidirectional power flow and as the boundary 
+for ownership, responsibility, and power-quality supervision. Although 
+physical access is decentralized through the core operating platform of 
+the virtual power plant, these heterogeneous and dispersed resources are 
+integrated into a unified, controllable, and schedulable virtual entity. At 
+this level, the interaction between the VPP and external grid is man­
+ifested as a centralized, digitized, “virtual interface.” Acting as a reliable 
+and grid-friendly “virtual power source” or “virtual load,” it participates 
+in ancillary services such as peak shaving, frequency regulation, and 
+demand response. The dynamic power input/output is expressed as 
+follows: 
+Psch to =
+{
+Pt
+sch toL(Injection into the load)
+Pt
+sch toS(Absorbed from the grid)
+(12) 
+where Pt sch_toL denotes the scheduled power allocated to the down­
+stream loads, and Pt sch_toS represents the scheduled power dispatched 
+to coordinate with the upstream grid.
+The absorbed or injected power of the grid scheduling center, 
+together with the range of adjustable loads, must satisfy the following 
+constraints: 
+{
+Pt
+sch toL,max⩽Psch to⩽Pt
+sch toS,max
+ΔPsch to,min⩽ΔPsch to⩽ΔPsch to,max
+(13) 
+where ΔPsch_to is the adjustable load.
+2.2. VPP scheduling framework
+In summary, the VPP is an efficient and reliable energy ecosystem 
+constructed using digital means. The high heterogeneity of internal re­
+sources poses severe challenges for operational scheduling. According to 
+the supply–demand characteristics of VPP resources across different 
+periods, these heterogeneous resources are aggregated into two primary 
+roles—the “supply side” and the “load side”, which greatly reduces the 
+complexity of the scheduling model.
+Within this framework, DERs are abstracted into one virtual entity, 
+mainly to reduce the dimensionality of the strategy space and enhance 
+the scalability. This formulation implicitly assumes that supply side 
+DERs constitute a cooperative coalition coordinated by the VPP oper­
+ator, which is in line with common operational paradigms in current 
+VPP implementations (Li et al., 2025). Moreover, in liberalized elec­
+tricity markets where supply-side DERs may be owned by independent 
+entities with competing interests, the model can be naturally extended 
+to include internal competition. Specifically, individual DERs or clusters 
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+4 
+
+on the supply side can be considered as multiple non-cooperative agents 
+participating in an internal sub-game with the aggregated supply-side 
+mixed strategy being the equilibrium outcome of this lower-level 
+competition.
+A bi-level RL framework was adopted, which divides the overall 
+scheduling problem into two layers: “high-level decision-making” and 
+“low-level optimization.” The constructed hierarchical reinforcement 
+learning framework consists of an upper-level global coordination layer 
+and a lower-level local execution layer. The upper level comprises a 
+supply-side controller and a load-side controller. The former is respon­
+sible for formulating the overall electricity price and output allocation 
+strategy in line with the system's economic objectives and sup­
+ply–demand balance, whereas the latter plans the global response 
+scheme based on price signals and load forecasts. Together, they con­
+structed a price–load collaborative global scheduling strategy to guide 
+the specific decisions of the lower level. The lower level consists of 
+multiple subordinate units on the supply side and load side, which 
+interact in real time through price signals and electric energy. The 
+upper-level game captures the slower trends of strategic coordination 
+under uncertainty, while the lower-level agents operate at a finer tem­
+poral granularity, continuously adjusting their actions in response to 
+evolving system states. The overall framework is illustrated in Fig. 1.
+3. Modeling of upper-level dynamic sequential game theory
+Based on the division of roles into the supply side and the demand 
+side, the supply-side pricing strategy directly influences the demand- 
+side consumption behavior, whereas the demand-side response affects 
+the supply-side revenue. Therefore, the supply side should play a leading 
+role by participating in the VPP's optimization scheduling through a 
+dynamic pricing mechanism. This mechanism guides the demand side to 
+shift consumption patterns and alleviates grid congestion pressures. In 
+response, the demand side dynamically adjusts its consumption 
+schedule based on price signals to reduce costs and obtain demand 
+response incentives, as shown in Fig. 2.
+Based on the above analysis, this section develops a dynamic 
+sequential game model with mixed strategies in which the supply and 
+demand sides optimize their strategies through a two-stage sequential 
+game. As the “leader,” the supply side takes a dynamic pricing approach 
+to exert its dominant role, dividing the day into n pricing periods, each 
+associated with a price level π=(π1,π2,..,πn). The price strategy is rep­
+resented by a probability distribution vector p=(p1,p2,..,pn), where pi∈
+(Zhou et al., 2025) and ∑N
+i=1 pi = 1 hold. The demand side, acting as the 
+“follower,” adjusts its consumption schedule based on the observed 
+price strategy, aiming to minimize costs. This is expressed by strategy 
+q=(q1,q2,..,qn), with constraints qi∈(Zhou et al., 2025) and ∑N
+i=1 qi = 1.
+Let the rated power of the supply side i be denoted as Pi s and the 
+rated power of the demand side be denoted as Pi l. An imbalance be­
+tween the power generation and load sides of the grid threatens the safe 
+and stable operation of the system, potentially leading to severe con­
+sequences such as frequency instability and voltage collapse. To address 
+this, a power imbalance penalty factor, σ, is introduced in this study to 
+quantify the loss cost associated with power imbalance between the 
+Fig. 1. Dynamic sequential game modeling for VPP and solving subgame Nash equilibrium using a hierarchical reinforcement learning framework.
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+5 
+
+generation and load sides. This is expressed as follows: 
+σi
+s =
+max
+(
+0, ∑
+jPj
+s⋅pi −∑
+jPj
+l⋅qi
+)
+∑
+jPj
+s⋅pi
+, σi
+d =
+max
+(
+0, ∑
+jPj
+lqi −∑
+jPj
+s⋅pi
+)
+∑
+jPj
+l⋅qi
+(14) 
+where σi s and σi l represent the unit penalty factors for the supply side i 
+and demand side i, respectively. Based on the aforementioned penalty 
+factors, the unit penalty cost C due to power imbalance is defined as a 
+quadratic function of the factor σ, to maintain its convex increasing 
+property, expressed as follows:Ci
+s = λ1⋅
+( σi
+s
+)2, Ci
+l = λ2⋅
+( σi
+l
+)2, λ is a game 
+cost coefficient, and λ∈(Zhou et al., 2025) to optimize total revenue 
+(Huang et al., 2006). Ci s and Ci l represent the unit penalty costs for the 
+power imbalance of the supply side i and demand side i, respectively. 
+The convexity of this function ensures that the optimization problem has 
+a unique global optimal solution.
+Therefore, the mathematical expectation function can be designed as 
+follows: 
+Us =
+∑
+N
+i=1
+pi
+[
+( πi −Ci
+s
+)
+⋅min
+(
+pi
+∑
+j
+Pj
+s, qi
+∑
+j
+Pj
+l
+) ]
+, Ul
+= −
+∑
+N
+i=1
+qi
+[
+( πi + Ci
+l
+)
+⋅min
+(
+pi
+∑
+j
+Pj
+s, qi
+∑
+j
+Pj
+l
+) ]
+(15) 
+where Us represents the mathematical expectation of the supply side's 
+profit, and Ud represents the mathematical expectation of the demand 
+side.
+Considering the energy balance constraint, the expected supply or 
+demand for the supply side or demand side, denoted as i, should not 
+exceed the respective rated power and demand limits. Therefore, the 
+following conditions must be satisfied: 
+T
+∑
+j
+Pi
+spj⩽Ei
+s, T
+∑
+j
+Pi
+qqj⩽Ei
+l
+(16) 
+where T is the time constant, and Ei s and Ei d represent the rated en­
+ergies of the supply side i and load side i, respectively.
+The optimization objective of the supply side is max
+p Us(p, q) and that 
+of the demand side is min
+q Ul(p, q). According to the game-theoretic 
+framework, the first step is as follows: As the “follower,” the demand 
+side observes the supply side’s mixed pricing strategy p and optimizes its 
+consumption strategy q* to minimize costs:q* = argminUl(p, q).
+Second step: As the “leader,” based on optimal strategy feedback 
+from the demand side, the supply side solves for its mixed strategy p 
+through backward induction to maximize its own profit.
+3.1. Upper-level Nash equilibrium analysis
+In the optimal scheduling of a VPP, the supply side acts as the leader 
+by formulating a pricing strategy p=(p1,p2,..,pn) corresponding to the 
+probability distribution of electricity prices over n time intervals. As a 
+follower, the demand side adjusts its charging strategy q = (q1, q2, …, 
+qn) in response to observed price signals. Within the framework of the 
+dynamic sequential game model, the profit function of the supply side π 
+under electricity price i is defined as follows: 
+profit(πi, pi, qi) =
+[
+( πi −Ci
+s
+)
+⋅min
+(
+pi
+∑
+j
+Pj
+s, qi
+∑
+j
+Pj
+l
+) ]
+(17) 
+Similarly, the cost function on the load side under electricity price π 
+can be expressed as follows: 
+cost(πi, pi, qi) = −
+[
+( πi + Ci
+l
+)
+⋅min
+(
+pi
+∑
+j
+Pj
+s, qi
+∑
+j
+Pj
+l
+) ]
+(18) 
+The Nash equilibrium requires that the mixed strategy p of the 
+supply side maximizes its expected payoff, whereas the demand side 
+cannot achieve a higher payoff by unilaterally deviating from q. Within 
+a VPP, sub-units on both the supply and load sides are rational agents, 
+each of which is interested mainly in its own decisions and in the col­
+lective behavior. Consequently, if agents on the same side are playing a 
+game in a homogeneous strategy space, then the Nash equilibrium may 
+be equivalently described by a post-equilibrium aggregate. This 
+approach provides a possibility to model the system behavior with the 
+help of a representative aggregate (Singh et al., 2025). In a mixed- 
+strategy Nash equilibrium, the expected payoffs of all the pure strate­
+gies must be equal. Otherwise, the participants would adjust their 
+probability distributions toward strategies that yield higher payoffs. 
+Assuming that the demand side adopts a mixed strategy, p=(p1,p2,..,pn), 
+and the expected payoff of a pure strategy is denoted as cost(πi), the 
+necessary and sufficient condition for the existence of a Nash equilib­
+rium can be expressed as follows (see Appendix A for proof.):cost(π1) =
+cost(π2) = ⋯= cost(πn),∀i and qi > 0.
+In summary, based on the Lagrange multiplier method and the 
+definition of the Nash equilibrium, the necessary and sufficient condi­
+tion for a mixed strategy q=(q1,q2,..,qn) to constitute a Nash equilibrium 
+is that the payoffs of all the pure strategies qi > 0 are identical. In the 
+context of VPP scheduling, this condition ensures equilibrium in the 
+supply-side dynamic pricing strategy, guarantees the optimal response 
+of the demand side, and contributes to optimizing grid load, economic 
+Fig. 2. System scheduling diagram.
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+6 
+
+benefits, and traffic efficiency.
+3.2. Solving the refined Nash equilibrium in upper-level subgames
+Based on the aforementioned Nash equilibrium analysis, we adopt a 
+two-stage solution approach to the mixed-strategy dynamic game model 
+by employing the concept of a subgame perfect Nash equilibrium. The 
+first step is to determine the optimal demand-side response in the second 
+stage.
+Given the probability distribution of electricity prices q=(q1,q2,..,qn) 
+determined by the supply side and the realized electricity price πi 
+associated with outcome pi, the unit penalty cost for power imbalance on 
+the demand side is denoted as Ci d. The total supply and demand are 
+denoted by S and L, respectively. The demand-side optimization prob­
+lem can be formulated as follows (for detailed solutions, see Appendix 
+B.): 
+min
+q
+∑
+N
+i=1
+qi
+[( πi + Ci
+l
+)
+⋅min(pi⋅S, qi⋅L)
+]
+(19) 
+Similar to the second stage, pi* forms a recursive functional de­
+pendency on itself that cannot be solved directly using algebraic 
+methods. Therefore, reinforcement learning is a more reasonable 
+solution.
+3.3. MADDPG optimization and Improvement: SG-MADDPG
+To derive the optimal mixed strategies (p*,q*) of the supply and 
+demand sides within a VPP, this study relaxes the complete-information 
+assumption of the traditional Stackelberg game. Under the constraints of 
+stochastic electricity price distributions across time periods and 
+dynamically coupled power flows, we developed an improved algo­
+rithmic framework called SG-MADDPG, which is built upon the 
+MADDPG approach.
+Random electricity price period distribution: τ ∼P τ The power dy­
+namic coupling satisfies: 
+⃒⃒Psupply −Pload
+⃒⃒⩽εt.
+The proposed model enables the distributed learning of subgame 
+Nash equilibria under stochastic constraints. The key elements of the 
+model are as follows:
+Agent Design: Within the reinforcement learning framework, the 
+supply and demand sides are modeled as agents that interact with the 
+environment and exhibit both cooperative and competitive behaviors. 
+These are denoted as the supply-side agent (Agent S) and demand-side 
+agent (Agent L).
+Action Space Design: To facilitate mixed-strategy learning, a 
+gradient-based stochastic policy approach is adopted in which agents 
+directly output the parameters of the probability distribution of their 
+strategies. Specifically, the action of Agent S is defined as generating the 
+probability distribution p of the electricity pricing strategy for the next 
+time step, whereas that of Agent L is defined as generating the proba­
+bility distribution q of the charging strategy for the next time step. 
+Accordingly, the action space A is defined as follows: 
+at,s =
+[
+pt ∈Rn
+⃒⃒⃒⃒⃒
+∑
+N
+i=1
+pi = 1, pi⩾0
+]
+, at,l =
+[
+qt ∈Rn
+⃒⃒⃒⃒⃒
+∑
+N
+i=1
+qi = 1, qi⩾0
+]
+(20) 
+where pt and qt denote the strategies of Agent S and Agent L at time t, 
+respectively. The agents interact with the environment by executing 
+action strategies based on their outputs.
+State-Space Design: According to the Markov property of a Markov 
+game, the optimal decision of an agent in any state depends solely on its 
+current state. The objective of the agent is to maximize its expected 
+cumulative reward independent of the historical state information. 
+Therefore, the key factors influencing the next-step decisions of Agent S 
+and Agent L include: the current price information π, the action p of the 
+supply-side agent, and the action q of the demand-side agent. Accord­
+ingly, the state space S of the system at time t is defined as follows:st =
+(pt, qt, πt).
+In summary, the system state st is determined by the actions pt and qt 
+of the agents together with the current price information πt. The state 
+transition function is implicitly defined by the environmental dynamics 
+of the Markov decision process and is reflected through state updates; 
+therefore, it does not require explicit modeling. This design effectively 
+reduces the complexity of modeling state transitions and agent- 
+environment interactions, thereby avoiding the need for explicit and 
+cumbersome environmental modeling in reinforcement learning.
+To guide both agents toward synchronous optimization, convergence 
+to the Nash equilibrium, and the realization of their respective objec­
+tives, the reward function is constructed with two core components: (1) 
+an objective-driven term that directly quantifies the profit maximization 
+objective of Agent S or the cost minimization objective of Agent L and 
+(2) a Nash equilibrium constraint term that ensures that the funda­
+mental condition of a mixed-strategy Nash equilibrium is satisfied. The 
+objective-driven reward serves as the primary performance goal, while 
+the equilibrium constraint term is introduced as a regularization 
+mechanism rather than a competing optimization objective. Under the 
+equilibrium strategy, no agent can obtain a higher expected payoff or 
+lower expected cost by unilaterally switching to any pure strategy. 
+Accordingly, the reward function Rs of Agent S can be defined as follows: 
+Rs = αUs −γ
+∑
+N−1
+i=1
+|profit(πi) −profit(πi+1) |
+(21) 
+Agent L's reward function Rl is set as follows: 
+Rl = μUl −ρ
+∑
+N−1
+i=1
+|cost(πi) −cost(πi+1) |
+(22) 
+Here, αUs and μUl denote the profit of the supply side and the 
+expenditure 
+of 
+the 
+demand 
+side, 
+respectively. 
+The 
+terms 
+γ∑N−1
+i=1 |profit(πi) −profit(πi+1) | and ρ∑N−1
+i=1 |cost(πi) −cost(πi+1) | repre­
+sent the Nash equilibrium guidance components for the two types of 
+agents that drive the reward functions to converge rapidly toward the 
+Nash equilibrium. The associated weight parameters were determined 
+through sensitivity analysis experiments. Under these settings, the 
+equilibrium constraint term and the objective-driven reward act 
+complementarily. Specific parameter values are provided in Appendix F.
+Optimization Objective Design: The optimization objective of each 
+agent is to maximize the expected value of the discounted cumulative 
+reward through policy optimization. Based on the principle of temporal- 
+difference learning, the objective function L of Agent S is defined as the 
+mean squared error loss of the Q function as follows: 
+L i,s = E⊖o,a,ri,oʹ(
+Ri + γQi
+(
+pʹ
+t, πʹ
+t, pʹ)
+−Qi(qt, πt, p)
+)2
+(23) 
+Agent L's objective optimization function L is defined as follows: 
+L i,l⊖= E⊖o,a,ri,oʹ(
+Ri + γQi
+(
+qʹ
+t, πʹ
+t, qʹ)
+−Qi(pt, πt, p)
+)2
+(24) 
+Here, Qi(pt,πt,p) and Qi(qt,πt,q) represent the expected long-term 
+returns of Agent S and Agent L, respectively, given the current elec­
+tricity price and the strategies of all agents. γ = 0.99 denotes the dis­
+count factor, which balances the tradeoff between immediate and future 
+rewards.
+This paper proposes the SG-MADDPG algorithm, which improves the 
+MADDPG framework while preserving its centralized training and 
+decentralized execution paradigm. Critic networks have access to global 
+information during training, whereas actor networks rely solely on local 
+observations during execution. A dual-agent-independent actor–critic 
+network architecture was designed to address the sequential nature of a 
+two-stage supply–demand interaction.
+1) Actor Networks: For the Actor network of Agent S, the input is its 
+local observation space os=(pt,qt), and the output is the corresponding 
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+7 
+
+action as = μs(os;θs). Similarly, for the Actor network of Agent L, the 
+input is its local observation space ol=(pt,qt,πt i), and the output is the 
+corresponding action al = μl(ol;θl).
+2) Critic Networks: In virtual power plant scheduling, a sequential 
+game relationship with mixed strategies exists between supply and de­
+mand. Traditional critic networks struggle to effectively handle the 
+challenges arising from non-stationary environments and partial 
+observability. To address this issue, we propose a GIADC that integrates 
+graph neural network enhancement with adversarial dual-path optimi­
+zation. By introducing a structured opponent-modeling mechanism, the 
+network achieves an implicit representation of the opponent’s strate­
+gies. Consider a multi-agent system composed of n agents under partial 
+observability, where each agent i selects an action at i based on its local 
+observation ot i and the environment state is denoted as st i. First, the 
+system is modeled as a dynamic heterogeneous graph gt=(V,εt), where 
+the nodes νi∈V represent the agents and the edges et ij∈εt capture the 
+interaction intensity between agents i and j at the current time step. Each 
+agent maintains a policy network πθi(ai|si) and a critic network Qφi(o,a).
+Then, to implicitly model the opponent’s behavior, a dual-path 
+encoding structure is incorporated into the critic, and a Graph Atten­
+tion (GAT) mechanism is employed to aggregate neighborhood infor­
+mation. The feature representation of node νi is expressed as follows: 
+h(0)
+i
+= MLPenc
+(
+ot
+i ⊕at−1
+i
+)
+.
+Edge weights are calculated using the query-key mechanism as fol­
+lows: 
+αij =
+exp
+( σ
+(
+aT[
+Wqhj
+⃦⃦Wkhj
+] ) )
+∑
+k∈N (i)exp
+( σ
+(
+aT[
+Wqhj‖Wkhk
+] ) )
+(25) 
+where a denotes learnable parameters, || denotes vector concatenation, 
+and σ denotes the Leaky ReLU activation function.
+Finally, distinct graph-reasoning paths were designed for the supply 
+side and demand side. The supply-side strategy path is expressed as 
+follows:h(m+1)
+s
+= GAT
+(
+h(m)
+s
+,
+{
+h(m)
+l
+: ∀l ∈N (s)
+} )
+The final embedding is 
+zs = MLPs(hM s). The critical output is expressed as follows:Qs(os, as) =
+fϕ(zs ⊕p ⊕qt) Here, qt denotes the mean action vector of load-side 
+agents. The loader strategy path is expressed as follows:h(m+1)
+l
+=
+GAT
+(
+h(m)
+l
+,
+{
+h(m)
+s
+: ∀s ∈N (l)
+} )
+The final embedding was zl = MLPl(hM 
+l). The critical output is expressed as follows:Ql(ol, al) = fϕ(zl ⊕q ⊕pt)
+Here, pt represents the weighted average of the pricing signals issued by 
+the supply side agents.
+The GIADC explicitly encodes inter-agent dependencies through a 
+graph structure, thereby addressing the limitation of missing structural 
+information in traditional critic networks. Moreover, the dynamic edge 
+weight mechanism enables the model to adapt to non-stationarity 
+induced by evolving strategies. In addition, because the supply side 
+agent is the equilibrium result of an internal non-cooperative game 
+between multiple DER owners, the GIADC can explicitly capture stra­
+tegic interactions both within the supply side as well as across the 
+different roles of agents.
+3) Equilibrium Reinforcement Mechanism: Nash equilibrium 
+constraint terms are incorporated into the reward functions of both 
+Agent S and Agent L, guiding the profits and costs of the two types of 
+agents toward equilibrium. 
+profit(πi) = profit
+( πj
+)
+, cost(πi) = cost
+( πj
+)
+(26) 
+This design ensures that the mixed-strategy updates satisfy the con­
+ditions for achieving a Nash equilibrium, thereby accelerating conver­
+gence and enabling the algorithm to reach the equilibrium more 
+efficiently. The algorithm flow is presented in Appendix C.
+4. Lower-level scheduling: MARL
+4.1. Lower-level scheduling optimization objective analysis
+In VPP power scheduling, the system must simultaneously satisfy 
+three core constraints: power balance, temporal coupling, and resource 
+competition. To this end, the complex scheduling problem was modeled 
+as a hierarchical decision-making process. The output of the upper-level 
+decision, manifested as the probabilistic scheduling strategy formulated 
+by each unit in the day-ahead stage, serves as the basis and starting point 
+for lower-level real-time scheduling. On the supply side, each unit di­
+vides a day into 24 time periods and maintains an output willingness 
+distribution vector for each period based on the day-ahead electricity 
+price forecast. This distribution satisfies the following probability con­
+straints:∑
+k∈K ps,t(k) = 1,∀i ∈G ,t ∈T .
+where pi,t(k) represents the probability that generation unit i selects 
+output level k in time period t. As the ‘price follower,’ the load-side unit 
+dynamically adjusts its electricity consumption plan in real time ac­
+cording to the observed supply-side price and output strategy, so as to 
+optimize economy and flexibility. The electricity demand of load unit j 
+in time period t can be expressed as Ei,t=Pi,rated•Δti,t, where Pi,rated is the 
+rated power and Δtj,t is the actual operating duration. By adjusting Δti,t, 
+flexible control of the electricity quantity can be achieved; the same 
+applies to the supply-side unit.
+Based on the above strategy, the upper-level scheduler counts the 
+expected electric energy of all the units at operating time t: 
+Et
+s =
+∑
+i∈G
+E
+[
+Ei,t
+]
+, Et
+l =
+∑
+j∈L
+E
+[
+Ej,t
+]
+(27) 
+When a supply–demand imbalance occurs, the Et s ∕= Et l, the grid- 
+connected scheduling center will detect the power deviation ΔEt = Et s 
+−
+Et l and compensate for this difference through purchase/sale trans­
+actions with the main grid under economy and stability constraints, 
+while feeding the compensation information back to the upper-level 
+controller for strategy updating.
+Ultimately, the power scheduling agent at the lower-level control 
+center will, based on the actual balanced electric energy situation, 
+specifically execute the power supply and consumption control for each 
+distributed energy resource and load unit, thereby converting the upper- 
+level probabilistic strategy into precise scheduling instructions that 
+satisfy the actual supply–demand balance, completing the closed-loop 
+process from collaborative decision-making to concrete execution, as 
+shown in Fig. 3.
+4.2. Constrained Markov game process analysis
+To transform the VPP scheduling problem, which is characterized by 
+high heterogeneity, multi-agent conflicts, and multi-source un­
+certainties, into a computationally tractable framework, the problem is 
+formulated as a Constrained Partially Observable Markov Game 
+(CPOMG). As such, the uncertainties within the system were precisely 
+modeled to capture the stochastic nature of the real environment 
+accurately.
+4.2.1. Definition of a tuple in a Markov game
+A Markov game can be described by the tuple M=〈s,a,p,r,c,γ,Ω〉. 
+Compared with deterministic models, an uncertainty space Ω is 
+introduced.
+In this framework, the supply and load sides are abstracted into two 
+types of agents to enable dynamic coordination of heterogeneous re­
+sources. The supply-side agent primarily represents renewable energy 
+generation units, energy storage systems operating in discharge mode, 
+and EV discharging to the grid. Its objective is to maximize the gener­
+ation profit in response to upper-level price signals while handling un­
+certainties, such as the fluctuations of PV outputs and equipment 
+failures. The load-side agent corresponds to industrial loads, energy 
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+8 
+
+storage systems operating in the charging mode, and EVs in the charging 
+mode. Its objective is to minimize electricity costs and dynamically 
+balance supply and demand in response to electricity price disturbances. 
+The two types of agents are non-cooperatively coupled through price 
+signals and interact within the Markov decision process to achieve real- 
+time market adaptation and global optimization.
+s is the global state space. The state space reflects the system infor­
+mation that the scheduler can perceive in each period t. The state st ∈s at 
+time t includes: the current time, the status of each task, the current 
+cumulative supply power and load power, the historical sequence of 
+supply–demand deviations, and the feature variables characterizing the 
+dynamics of uncertainty.
+a is the action space of agent i. Each agent action was a binary 
+decision.
+p:s × a1×⋯×aN × Ω → Δ(s) is the state transition function, which is 
+now jointly determined by the joint actions of the agents and stochastic 
+uncertainty.
+r is the reward function of agent i.
+c is the set of system constraints.
+Ω is the uncertainty space, which encapsulates all exogenous and 
+endogenous stochastic factors.
+4.2.2. Multi-source uncertainty modeling
+The uncertainties were quantified and categorized into two types to 
+enable precise scheduling: exogenous and endogenous. Exogenous un­
+certainties are those that are caused by factors that are outside of the 
+control of the internal system whereas endogenous uncertainties are 
+those that are caused by internal events such as equipment faults. Given 
+that the proposed framework is aimed at short-term operational 
+scheduling under uncertainty, where decision robustness and compu­
+tational feasibility are the priorities, this work takes a DRO perspective, 
+assuming that the true distribution of the uncertain parameters is 
+contained within an ambiguity set:
+Exogenous uncertainty refers to stochastic factors beyond the control 
+of the internal system.
+The fluctuation in the renewable energy output (distributed photo­
+voltaic generation) was modeled in the form of a day-ahead forecast plus 
+random error: 
+Pt
+pv = ̂
+Phtpv + εt
+pv, εt
+pv ∼N
+(
+0, σ2
+pv
+)
+(28) 
+where εt pv satisfies the time correlation: 
+εt+1
+pv = ρpvεt
+pv + ηt, ηt ∼N
+(
+0, σ2
+η
+)
+(29) 
+where ρpv is 0.8, and σpv is 0.05 Pmax pv.
+The baseline load fluctuation (sudden increase/decrease in industrial 
+load) is modeled in the form of a baseline + random disturbance + event 
+shock: 
+Pt
+L,dem = Pt,base
+L,dem + εt
+L,dem + Jt
+(30) 
+where εt L,dem also satisfies time correlation, and Jt represents rare 
+shocks, which can be modeled as Poisson arrivals with parameter Jt =
+B•I{Nt > 0}.
+Endogenous uncertainty refers to faults and other events originating 
+from within the system.
+Equipment failure or degradation is modeled as a random drift 
+decline in the available power over time: 
+Pt+1
+avail = Pt
+avail(1 −δt), δt = δ + εt, εt ∼N
+(
+0, σ2
+δ
+)
+(31) 
+4.2.3. Constraint handling
+In an uncertain environment, satisfying hard constraints is more 
+challenging. The constraints for the supply units and load units include 
+Fig. 3. Hierarchical collaborative training mechanism of the proposed bi-level MARL framework. The upper layer learns equilibrium-guided pricing and response 
+strategies via a sequential game–based MARL model, while the lower layer performs robust real-time dispatch under uncertainty using distributionally robust MARL. 
+Bidirectional information exchange enables coordinated learning and execution.
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+9 
+
+the following: load balance constraint:∑n
+i=1Pixi,t = Dt,∀t, where Pi is the 
+rated power of each supply unit and Dt is the demand sequence of the 
+load units. Continuous generation constraint: Ti,t ≤Tmax,i. Start-stop 
+frequency constraint: Ns,cum ≤Nmax, where Ns,cum = ∑
+t
+∑
+i
+⃒⃒xi,t −ui,t−1
+⃒⃒
+and ui,t-1 are the states of the previous time period.
+To further enhance the flexibility and robustness of the lower-level 
+RL model in handling hard constraints and exogenous and endogenous 
+uncertainties, this study introduces the Lagrangian relaxation method. 
+These constraints are relaxed into the objective function via Lagrangian 
+multipliers λk, forming the following augmented Lagrangian function: 
+L(x, λ) = f(x) +
+∑
+k
+λkνk(x)
+(32) 
+where f(x) represents the original objective function and vk(x) quantifies 
+the violation of the k-th constraint. By solving the dual problem q(λ) =
+maxλminxL(x,λ), the relaxation method provides a lower-bound 
+approximation to the original problem, and the optimal solution is 
+approached when the multipliers λ are updated via sub-gradient ascent. 
+The dual variable λ in the dual problem is updated using the sub- 
+gradient method to ensure dual convergence: initialize λ0 ≥0. At each 
+iteration k, it satisfies: 
+sk = ∇λq
+(
+λk)
+≈g
+(
+x*
+(
+λk) )
+, λk+1 =
+[
+λk + αksk]
++
+(33) 
+where αk = c/
+̅̅̅̅̅̅̅̅̅̅̅
+k + 1
+√
+, and the sub-gradient of the dual function q(λ) is 
+bounded, ‖∇λq(λ) ‖⩽ν(x) holds for all λ ≥0, so the average dual value 
+qK = (1/K)∑K
+k=1q
+(
+λk)
+satisfies: 
+d* −qk⩽
+ν(x)2c + D2/
+c
+2
+̅̅̅
+K
+√
+(34) 
+where d* is the optimal dual value, D =
+⃦⃦λ0 −λ*⃦⃦⩽Dmax. Strong duality 
+ensures that the primal solution x*=arg minaL(a, λ*) is optimal and that 
+the constraint violation converges to zero.
+4.3. DROMARL (Distributed robust optimization Multi-Agent 
+reinforcement learning core Algorithm)
+4.3.1. Distributionally robust Critic design
+The proposed distributionally robust Critic is designed to solve the 
+following min–max problem based on the Wasserstein ambiguity set: 
+θ*
+i = argmin
+θi
+sup
+P∈B ε(ˆPN)
+Eξ∼P
+[(
+Qθi(si, ai, a−i) −y
+)2 ]
+(35) 
+where B ε(̂PN)≜{P ∈P : W1(P, ̂PN)⩽ε } is the Wasserstein ball 
+centered at the empirical distribution ̂PN with radius ε.
+Theorem 1 (Strong Duality and Equivalent Regularization). 
+Following the results of Mohajerin Esfahani et al. (2018) (Bertsimas 
+et al., 2018; Mohajerin Esfahani and Kuhn, 2018), for the above Was­
+serstein DRO problem under mild regularity conditions, strong duality 
+holds. The original problem is equivalent to the following regularized 
+form:min
+θi EˆPN
+[(
+Qθi −y
+)2 ]
++ ε⋅R
+(
+Qθi
+)
+, where R(Qθi) is a regularization 
+term related to the Lipschitz constant of the Q function.
+Proof: According to Wasserstein’s metric duality theorem, the 
+supremum term can be transformed into a penalty term: 
+sup
+P:W1(P,ˆPN)⩽ε
+EP[f(ξ) ] = EˆPN[f(ξ) ] + ε⋅Lip(f)
+(36) 
+where Lip(f) is the Lipschitz constant of the function f. Under the present 
+framework, f(ξ)=(Qθi-y)2. To ensure Lipschitz continuity, a gradient 
+penalty mechanism was introduced.
+Corollary (Equivalence of Gradient Penalty). Following Gulrajani 
+et al. (2017) and Chen Y et al. (2023) (Gulrajani et al., 2017; Chen et al., 
+2023), by enforcing the Critic to satisfy 1-Lipschitz continuity, 
+⃦⃦∇ˆSQθi(̂s, a)
+⃦⃦
+2⩽1, the original distributionally robust loss function can 
+be approximated by the following more tractable gradient penalty form: 
+L DR−Critic = EˆPN
+[(
+Qθi −y
+)2 ]
++ λGP⋅EˆS∼PˆS
+[( ⃦⃦∇ˆSQθi(̂s, a)
+⃦⃦
+2 −1
+)2 ]
+(37) 
+where ̂s is a random interpolation point on the straight line between real 
+samples and generated samples, ̂s = αs + (1 −α)sʹ, with α ~ U (Zhou 
+et al., 2025). This penalty term indirectly constrains the Wasserstein 
+distance by constraining the gradient norm of the Critic, thereby 
+achieving a balance between empirical risk minimization and the worst- 
+case performance guarantee.
+4.3.2. Low-variance target generation assisted by probabilistic world model
+To further reduce the variance of the Q-value estimation under the 
+worst-case distribution, a lightweight Probabilistic World Model (PWM) 
+based on a Variational Recurrent Neural Network (VRNN) is introduced. 
+This model is jointly trained end-to-end with the main Actor-Critic 
+network. The PWM explicitly learns the conditional state transition 
+distribution p(st+1|st,at,zt), where zt is a latent variable capturing the 
+temporal correlations of uncertainty factors such as PV output, load 
+fluctuations, and electricity price variations. The PWM is trained by 
+maximizing the evidence lower bound, and its loss function is defined as: 
+L PWM = Eq(z|s,a )[logp(sʹ|z, a ) ] −DKL(q(z|s, a )‖p(z) )
+(38) 
+During training, the reparameterization trick is employed to ensure 
+differentiable gradient propagation.
+In the Critic update stage, the traditional single-step temporal dif­
+ference target tends to produce high-variance estimates in heavy-tailed 
+uncertainty environments. To address this issue, H = 5-step look ahead 
+model rollout was performed using the trained PWM, generating K = 10 
+Monte Carlo sampled trajectories {τk}K k-1 for each experience sample. 
+Low-variance, informative samples are then selected via entropy regu­
+larization, focusing training on the most uncertain scenarios. Based on 
+this procedure, the following low-variance robust target is constructed: 
+yro = r + γ⋅EK
+k=1
+[
+Qθi −
+(
+sʹ
+k, π
+(
+aʹ
+k
+) ) ]
++ β⋅H (p(⋅|s, a ) )
+(39) 
+where the last term is the policy-entropy regularization term, used to 
+prevent the model from being overconfident in its predictions and to 
+improve the policy's exploration stability. This mechanism seamlessly 
+collaborates with the aforementioned Wasserstein DRO gradient pen­
+alty, and the multistep sampling trajectories provided by PWM effec­
+tively expand the coverage of samples in the experience replay buffer, 
+making the constructed Wasserstein ambiguity set Bε more dis­
+tributionally representative, thereby significantly enhancing the stabil­
+ity of the Q-value estimation under the worst-case distribution.
+4.3.3. Actor design based on uncertainty perception
+A standard deterministic actor policy is prone to overconfident 
+decision-making errors when faced with distributional shifts. This study 
+proposes a two-stage actor design method to enhance a policy’s 
+perception of uncertainty.
+Training stage: Parameterized noise ε~N(0.σ2I) is injected after the 
+input layer of the Actor network, with the noise intensity σ exponentially 
+decaying with the training episodes, specifically σ = σ0•ρepisode, where ρ 
+= 0.999. This operation is equivalent to Gaussian smoothing in the 
+policy space, enabling the learned policy to possess inherent robustness 
+to input perturbations, which theoretically corresponds to minimizing 
+the following robust policy gradient objective: 
+∇J(π) ≈Eε[∇θlogπθ(a|s + ε )⋅Q(s + ε, a) ]
+(40) 
+Inference phase: Retain the Dropout layer used in the training phase 
+(dropout probability p = 0.1) and perform M = 8 forward propagations. 
+The final decision is obtained by averaging the output actions. 
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+10 
+
+̂a = 1
+M
+∑
+M
+m=1
+πθ(s; dropoutm)
+(41) 
+Simultaneously, the entropy H(πθ(s)) of the action distribution is 
+computed as a quantitative indicator of uncertainty: when the entropy 
+value exceeds a preset threshold τ, the system automatically switches to 
+a conservative policy, thereby avoiding aggressive decisions in high- 
+uncertainty scenarios such as sudden photovoltaic drops or electricity 
+price jumps.
+This design forms a closed-loop feedback with the overall DRO 
+module. The uncertainty information perceived by the Actor is further 
+fed back to the PWM to dynamically adjust the model sampling strategy, 
+thereby continuously enhancing the overall robustness of the system 
+under the worst-case distribution.
+4.3.4. Robust Nash equilibrium guiding mechanism
+In the stochastic game under consideration, the target strategy must 
+satisfy Nash equilibrium conditions while remaining robust to distri­
+butional perturbations. Accordingly, a distributionally robust Nash 
+equilibrium is defined.
+Definition 1 (Distributionally Robust Nash Equilibrium). A 
+mixed-strategy profile π*=(π*i,π*-i) is called a distributionally robust 
+Nash equilibrium if and only if, for all agents i and all possible distri­
+bution perturbations P∈Bε, the following condition holds: 
+EP
+[
+Ui
+( π*
+i , π*
+−i
+) ]
+⩾EP
+[
+Ui
+( πʹ
+i, π*
+−i
+) ]
+∀πʹ
+i ∈
+∏
+i
+(42) 
+where Ui is the expected utility of agent i.
+To achieve this distributionally robust Nash equilibrium, a 
+robustness-guiding term is incorporated into the reward function. 
+Rro = Ri + η⋅EP∈B ε
+[
+Varj
+{
+Ui
+( πj
+) } ]
+(43) 
+Proposition 1 (Robustness Interpretation of Variance Penalty). 
+The variance penalty term Vari{Ui(πi)} in the reward function is equiv­
+alent to introducing a risk-sensitive robustness term in policy optimi­
+zation. Minimizing this variance term forces agents to select strategies 
+whose payoffs exhibit smaller fluctuations across different distribution 
+perturbations, thereby enhancing the strategies' stability.
+Consider agent i's utility Ui(πi) under policy πi as a random variable. Its 
+variance can be decomposed as: 
+Var(Ui) = EP
+[
+(Ui −Ui)2 ]
+(44) 
+where Ui denotes the expected utility. By penalizing the variance, the 
+mean–variance tradeoff objective is effectively optimized: 
+max
+π
+{
+E[Ui(π) ] −η
+2⋅Var(Ui(π) )
+}
+(45) 
+This is a typical risk-sensitive RL objective, whose solution is known 
+to correspond to a robust optimal policy.
+5. Simulation experiments and result analysis
+To validate the effectiveness of the proposed bi-level MARL sched­
+uling decision framework, this section conducts evaluation through 
+numerical simulation experiments. The implementation of the experi­
+ments is done on the platform of the Matlab/Simulink in conjunction 
+with the PyTorch library in Python to realize the MARL algorithm. The 
+simulation scenario models a typical VPP system comprising distributed 
+PVs, energy storage units, EV clusters, industrial loads, and a grid- 
+connected scheduling center. The experiments incorporate real-world 
+factors such as electricity price fluctuations, renewable energy output 
+uncertainty, and load disturbances, and assess the performance of the 
+framework in terms of global profit improvement, default risk reduction, 
+and algorithmic convergence stability. All experiments are repeated 10 
+times, and the average values are reported to mitigate the influence of 
+randomness. The comparison benchmarks include traditional central­
+ized optimization approaches: model predictive control based on linear 
+programming (MPC),conventional Stackelberg game method, standard 
+MADDPG algorithm, and the deep end-to-end causal inference-based 
+optimization scheduling method (DECI-VPP) (Geffner et al., 2202). 
+Under unified parameter settings, five different scenarios are con­
+structed, each adopting different baseline methods for comparative 
+analysis, as summarized in Tab. 1.
+The detailed experimental parameters and the calculation methods 
+for key performance indicators (global profit, default risk, algorithm 
+convergence speed, robustness, and equilibrium quality metrics) used in 
+this paper are provided in Appendix F.
+5.1. Experimental results and analysis
+5.1.1. Robustness assessment in uncertain scenarios
+Different levels of uncertainty are introduced (including PV output 
+fluctuations of 5% to 20%, and load disturbances of 5% to 15%) to 
+evaluate the performance of the proposed method across 100 Monte 
+Carlo scenarios. The box plot of the corresponding global profit as the 
+level of uncertainty increases is shown in Fig. 4.
+As can be seen in the figure, when uncertainty increases, the profit 
+boxes have shifted down (reduced profit) and the boxes have become 
+wider (greater variability). Notably, the proposed method has the 
+smallest downward shift, the narrowest box width and the fewest out­
+liers under high uncertainty, and has much higher overall profit 
+compared with the other methods. These results show the effectiveness 
+of the DRO mechanism and GNN enhancements in improving the system 
+robustness.
+Table 2 below lists the Default Risk (DR) values for each method at 
+different levels of uncertainty (5%, 10%, 15%, and 20%).
+The DR analysis shows that as the level of uncertainty increases from 
+5% to 20%, the DR of all the methods shows a roughly linear upward 
+trend. This is mainly because of the increased supply–demand 
+Table 1 
+Different scene settings and features.
+Scenario
+Method
+Feature description
+Applicable 
+Scenarios
+Scenario 
+1
+MPC Method 
+Based on Linear 
+Programming
+It supports linear 
+inequality constraints on 
+decision variables and 
+state variables
+Minimize 
+operating costs 
+after constraint 
+processing
+Scenario 
+2
+Traditional 
+Stackelberg game 
+theory
+Given a fixed leader power 
+supply strategy p, solve for 
+the optimal follower load 
+side q* and substitute it 
+into the solution for 
+numerical optimization of 
+p*
+Offline solution of 
+SPNE benchmark
+Scenario 
+3
+Standard 
+MADDPG 
+algorithm
+It adopts a centralized 
+training and distributed 
+execution framework, and 
+uses a centralized critic to 
+coordinate the strategies 
+of each agent
+Assessing the 
+necessity of MARL 
+collaboration
+Scenario 
+4
+DECI-VPP method
+The solution is obtained 
+by simultaneously 
+identifying causal 
+structures and estimating 
+causal effects from 
+observational data
+Extracting 
+causality from 
+observation data
+Scenario 
+5
+This article's 
+method
+The upper layer uses the 
+SG-MADDPG algorithm, 
+the lower layer uses the 
+DROMARL algorithm, and 
+the hierarchical MARL 
+sequential game theory is 
+used to build a 
+hierarchical optimization.
+Nash equilibrium 
+optimal scheduling
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+11 
+
+imbalances (ΔP) caused by PV output fluctuations and load distur­
+bances, which are further increased by equipment failures. The overall 
+average DR results are as follows: The average DR of the proposed 
+method is 3.1%, showing that the proposed method can reduce the 
+average DR by 66.9% compared with the Stackelberg game method 
+(9.1%), 52.3% compared with standard MADDPG (6.4%), and 40.3% 
+compared with the DECI-VPP method (5.1%). These improvements are 
+attributed to the DRO mechanism, which addresses the non-stationarity 
+of the environment and policy oscillations, and the GNN-enhanced Critic 
+network, which better models the inter-agent dependencies, which al­
+lows for rapid adjustments of electricity pricing strategies (p) and load 
+responses (q).
+5.1.2. Algorithm convergence analysis
+To test the convergence performance of the proposed method, the 
+algorithm is trained with fixed uncertainty levels, i.e. 10% fluctuation in 
+PV output and 5% load disturbance. The cumulative reward curves for 
+both supply and load sides are registered. Fig. 5 shows the convergence 
+curves of the various methods.
+The analysis shows that there is a cumulative increase in the rewards 
+with the number of training episodes in all cases, although there is a 
+significant variation in performance. The final reward values for Sce­
+narios 1 through 4 increase successively, and are around −200, −100, 
+−50, and close to 0, respectively. Scenario 5, which represents the 
+proposed method, while achieving the final reward closest to zero, 
+significantly outperforms the other scenarios, and also has the smoothest 
+and most stable learning curve, with the fastest convergence and mini­
+mal oscillations. These results show a better learning efficiency and 
+policy stability for the proposed approach.
+5.1.3. Global profit and cost optimization comparison
+Under the benchmark scenario without additional disturbances the 
+global profits of the different methods are compared. Tab. 3 gives the 
+average profit and cost of each method over a 24-hour period.
+As can be seen in Fig. 6, the proposed method is consistently better 
+than all the comparison approaches in terms of the important metrics. 
+For the same amount of power supply, it greatly saves the cost on the 
+load side, can achieve more accurate power supply–demand manage­
+ment, and finally realize profit on a global scale. The profit values of the 
+comparison methods are 567¥, 611¥, 613¥, and 620¥, respectively, 
+while the proposed method shows an increased profit of 711¥, which is a 
+14.7% increase compared to the best baseline and an increase of up to 
+25.3% compared to the worst performing method. These results reflect 
+the obvious benefits of the proposed method in terms of overall per­
+formance and system economics, and establish the effectiveness and 
+superiority of the proposed method in power scheduling and energy 
+management applications.
+5.1.4. Dynamic analysis of electricity prices and load response
+Analysis of the dynamic response of the electricity prices and load 
+curves on a typical day is presented. Fig. 7 shows the electricity price 
+probability distribution together with the load adjustment curve derived 
+with the proposed method.
+The results show that the dynamic variation of the electricity price 
+probability distribution is effective to represent the supply and demand 
+situation, so that the user load curve can respond accordingly. Specif­
+ically, loads are reduced actively during high-price periods and 
+moderately increased during low-price periods. This response mecha­
+nism greatly smooths the overall system load curve, reduces the peak-to- 
+valley difference, reduces the pressure on grid operation, and greatly 
+improves the stability and operation efficiency of the system.
+5.1.5. Sensitivity analysis
+A sensitivity analysis of key parameters is performed. Fig. 8 shows 
+the differences in global profit and equilibrium quality measures in 
+terms of the penalty coefficient λ.
+Scenario 5 always has the largest global profit with different penalty 
+coefficient λ, which reaches the maximum value of 976 when λ = 0.5, 
+and has an improvement of 26.8%~34% compared with the other sce­
+narios. Simultaneously, its metric of equilibrium quality is stably less 
+than 0.01, which means that profit maximization in this scenario does 
+not affect the stability of the system and reaches an optimal balance 
+between economic benefits and operational performance. As the value 
+Fig. 4. Box plot of global profit under uncertainty level.
+Table 2 
+Fault risk values in different scenarios.
+Scenario /%
+Uncertainty 
+level 5%
+Uncertainty 
+level 10%
+Uncertainty 
+level 15%
+Uncertainty 
+level 20%
+Scenario 1
+6.0
+9.0
+12.0
+15.0
+Scenario 2
+3.5
+8.0
+11.0
+14.0
+Scenario 3
+3.0
+5.5
+7.5
+9.5
+Scenario 4
+2.5
+4.5
+6.0
+7.5
+Scenario 5
+2.0
+2.8
+3.4
+4.2
+Fig. 5. The reward curves under the identical reward function setting reflect 
+the training reward convergence of different methods. The differences in 
+convergence levels demonstrate the performance gap in handling VPP un­
+certainties, satisfying system constraints, and achieving coordinated equilib­
+rium behavior.
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+12 
+
+of λ varies from 0.1 to 1, the global profit curve of Scenario 5 shows the 
+most gradual decrease, while the equilibrium quality measure is stable 
+with little fluctuation. These results show that Scenario 5 is the least 
+sensitive to parameter variations and has the most robust control 
+strategy, and can maintain stable performance under different policy 
+settings and market conditions.
+5.1.6. Ablation experiment
+To systematically determine the contribution of each key component 
+in the proposed framework, ablation experiments are presented in this 
+section. The performance of various variants is assessed under bench­
+mark and uncertainty scenarios by selectively removing or modifying 
+core modules of the framework. Experimental settings are based on 
+those of Appendix E, with the same system parameters and uncertainty 
+Table 3 
+Comparison of global profit and cost under different methods.
+Method
+MPC Method Based on Linear 
+Programming
+Traditional Stackelberg game 
+theory
+Standard MADDPG 
+algorithm
+DECI-VPP 
+method
+This article's 
+method
+Profits on the power supply 
+side /￥
+1345
+1354
+1365
+1372
+1444
+Load-side cost /￥
+664
+640
+643
+645
+635
+Power imbalance penalty /￥
+114
+103
+109
+107
+98
+Overall Profit /￥
+567
+611
+613
+620
+711
+Fig. 6. Global Profits of Different Methods.
+Fig. 7. Electricity price probability distribution heatmap and load response curve.
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+13 
+
+models. The variants are as follows:
+1) Proposed method- noGNN: eliminates the GNN-enhanced GIADC 
+Critic, and replaces it with a standard fully connected Critic network.
+2) Proposed method-MLP: encodes neighboring states using inde­
+pendent MLPs, without using any graph structure or message passing.
+3) Proposed method-noNE Eliminates the Nash equilibrium 
+constraint term from the reward function, leaving only the objective 
+driven part.
+4) Proposed method-noDRO: Eliminates the DRO component and 
+relies only on the upper level game model for optimization.
+5) Full proposed method −
+the entire framework, which is the 
+baseline.
+Each variant is trained for 20,000 iterations with fixed levels of 
+uncertainty, with results averaged over 10 independent runs. Evaluation 
+metrics include global profit, DR, number of iterations to convergence 
+and deviation from the Nash equilibrium. Robustness is further evalu­
+ated using Monte Carlo simulations for 100 disturbance scenarios.
+Based on the ablation results illustrated in Tab. 4, the critical role of 
+each of the components in the proposed multi-agent reinforced learning 
+double-layer scheduling framework can be verified in a systematic way. 
+Under uncertain conditions, the full framework had a high global profit, 
+and a DR of just 2.8%. In contrast, the performance of each variant 
+significantly decreased: the DR of the noGNN variant increased to 4.5%, 
+which is a 61% increase compared with the complete framework; the 
+noNE variant further increased to 5.2%, which is an 86% increase. The 
+noStr variant had the worst performance degradation with a DR of 6.1%, 
+which is a 118% increase. Replacing the GNN module with an MLP led to 
+a DR of 4.6%, which is 64% higher than the full framework. This step- 
+wise increase in risk underlines the key role of the hierarchical multi- 
+agent reinforced learning model in controlling environmental uncer­
+tainty. Specifically, the GNN module is effective in improving de­
+pendency modeling among intelligent agents, while replacing it with an 
+MLP results in higher variance in profit, higher risk and slower 
+convergence. Moreover, the Nash equilibrium constraint mechanism 
+guarantees the stability of the system, and the performance deteriora­
+tion of the system without the hierarchical strategy (noDRO) further 
+proves the decisive effect of the structured decision-making framework 
+on the coordination of complex multi-agent interactions.
+5.2. Analysis of real-world cases
+In order to further validate the practical applicability and effective­
+ness of the proposed bi-level MARL scheduling framework, an analysis 
+based on a real-world pilot VPP project in China is presented in this 
+section. The case was chosen from publicly available reports and in­
+dustry data, and represents operational environments with high 
+resource heterogeneity and with significant uncertainty. The analysis 
+procedure includes data acquisition, model implementation, perfor­
+mance evaluation and comparative analysis. The proposed framework is 
+applied to historical operational data to simulate optimized scheduling 
+strategies and their performance is evaluated against actual operational 
+records as well as benchmark methods in terms of overall profit 
+improvement, reduction of DR, and enhancement of system stability. All 
+analyses are based on publically available datasets for the 2023–24 
+period with the results averaged over 5 independent runs to reduce 
+stochastic variability. Taking into account e.g. system scale, computa­
+tional feasibility and data availability, the framework is implemented on 
+a daily timescale. Benchmark comparisons are the traditional central­
+ized scheduling approach used in real operations and the conventional 
+Stackelberg game method. Detailed data sources and specific VPP pa­
+rameters are given in Appendix F.
+5.2.1. Case study of VPP in Suzhou industrial Park
+The Suzhou Industrial Park VPP pilot focuses on industrial load 
+response and renewable energy integration, which is confronted with 
+large fluctuations in peak load and electricity price in the actual oper­
+ation. The proposed method is applied for simulating a 24 h scheduling 
+horizon. On a normal working day, the electricity consumption pattern 
+in Jiangsu Province (dashed reference curve) shows two obvious peaks: 
+a morning peak between 10:00 and 11:00 and an evening peak between 
+13:00 and 16:30. The park is equipped with 3660 public charging piles, 
+607 dedicated charging piles and 30 000 private charging piles, for a 
+Fig. 8. Global profit and equilibrium quality indicators vary with the penalty coefficient λ.
+Table 4 
+Performance comparison of different variants in ablation experiments.
+Variant
+Overall profit /￥
+Default risk /%
+Number of convergence iterations
+Nash Equilibrium Quality Indicators
+Robustness
+The method described in this article −noGNN
+743
+4.5
+9000
+0.25
+57.8
+Method used in this paper −
+MLP
+727
+4.6
+8500
+0.28
+47.5
+Method described in this article −
+noNE
+720
+5.2
+7000
+0.37
+45.7
+Method used in this article −
+noDRO
+741
+6.1
+8000
+0.12
+35.9
+Full text of this article's methods
+776
+2.8
+4000
+0.065
+14.3
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+14 
+
+total installed capacity demand of 376 400 kVA. Considering a simul­
+taneity coefficient of 0.6, the corresponding peak load is approximately 
+120 400 kW. Using this real-world data, an optimized scheduling is 
+performed in the proposed framework, the specific results of which are 
+summarized in Tab. 5.
+The experimental results for the Suzhou case, as shown in Tab. 5, 
+show the evident superiority of the proposed bi-level MARL scheduling 
+framework in terms of multiple important metrics. In terms of economic 
+performance, the global profit of 117.85 million CNY is obtained under 
+the proposed method, which is 32.7% higher than that of the traditional 
+Stackelberg game and 19.2% higher than standard MADDPG, indicating 
+the superior ability of the proposed method in coordinated optimization. 
+Regarding system stability, the power imbalance penalty is reduced to 
+39.96 million CNY, which is 6% lower than centralized MPC optimiza­
+tion, with a DR of 2.9%, which is significantly lower than 6.2% for 
+traditional methods and 4.8% for baseline MADDPG. Notably, the 
+method maximizes the supply-side profit and minimizes the load-side 
+cost at the same time, which shows its capability of achieving a 
+win–win situation for both suppliers and consumers. Compared with 
+DECI-VPP, the full version of the proposed method further improves the 
+global profit by 32.4%, which validates the crucial contribution of the 
+value iteration module in long-term revenue optimization.
+5.2.2. Case study of VPP pilot Zones in Anhui Province
+The Anhui pilot zone emphasizes the involvement of EV clusters, 
+where practical difficulties are uncertainty in the SOC of EVs and sudden 
+variations in electricity prices. The proposed framework is used for 
+simulation and optimization based on measured data from the Xuan­
+cheng VPP. Optimized scheduling is carried out to test the transferability 
+and applicability of the strategy under conditions of multi-resource ag­
+gregation and interactions with the electricity markets. The results, 
+which compare the output and power profiles of each unit in different 
+scenarios, are shown in Fig. 9.
+Fig. 9 shows the power output of each component included in the 
+VPP in different scenarios during a typical day and their temporal 
+variation trends. The results show that the system can perform effective 
+scheduling and resource allocation while adapting to various opera­
+tional requirements.
+As shown in Table 6, the experimental results from the Anhui case 
+also confirm the clear superiority of the proposed method for all the key 
+performance metrics. Specifically, it enjoys a global profit of 24.78 
+millon CNY, which is 20.4% better than the second best method (DECI- 
+VPP) and 28.5% better than the traditional Stackelberg game. The 
+framework also achieves a true win–win result for both sides: supply side 
+profit is maximized to 944.48 million CNY and load side cost is mini­
+mized to 853.09 million CNY. Regarding the system stability, the power 
+imbalance penalty is reduced by 33.6% compared to standard MADDPG, 
+and the quality metric, equilibrium, is close to the near-optimal level, 
+which highlights the effectiveness of the proposed approach in both 
+economic and operational dimensions.
+5.3. Experimental conclusions
+Experimental results show that the proposed bi-level MARL frame­
+work can significantly outperform benchmark methods such as 
+centralized MPC, conventional Stackelberg game, standard MADDPG 
+and DECI-VPP under uncertain market conditions. In benchmark sce­
+narios, the framework significantly boosts the profit at the global level, 
+showing significant improvements with respect to both MPC and 
+Stackelberg game approaches. It also has faster convergence and 
+significantly less deviations from the Nash equilibrium. Through 
+parameter optimization, performance is further improved and the 
+number of iterations needed for convergence is noticeably reduced. 
+Ablation studies confirm that the DRO, GNN enhancement and Nash 
+equilibrium constraint are critical to improving the robustness, 
+modeling inter-agent interactions and guiding the equilibrium conver­
+gence, respectively. Under high uncertainty scenarios, the proposed 
+framework exhibits a high robustness, indicated by narrower ranges of 
+profit fluctuations and much lower DR than those of the Stackelberg 
+game and the standard MADDPG approaches. Real-world case studies in 
+China demonstrate significant profit improvements and a lot of risk 
+reduction. Comparisons with international VPP projects also provide 
+further validation of the generalisability of the framework, showing the 
+clear growth in profits and effective control of risks. Overall, the pro­
+posed framework can effectively coordinate the heterogeneous re­
+sources, avoid the imbalance penalty, and support the low-carbon 
+transition of power systems in accordance with the “dual-carbon” goals, 
+which shows its good engineering application value. All the experiments 
+were implemented with PyTorch 2.0, and the full code is publicly 
+available at: https://github.com/IAMHUT/Hierarchical-Optimization- 
+of-VPP-via-Sequential-Game-Based-Multi-Agent-Reinforcement- 
+Learning.git.
+6. Summary and Outlook
+This work tackles the issues of heterogeneous resource scheduling 
+and multi-stakeholder conflict coordination in VPPs under uncertain 
+market conditions. It proposes a two-layer MARL scheduling framework 
+based on a mixed strategy sequential game. Using a dynamic role 
+reduction mechanism, the framework constructs a sequential game in a 
+mixed electricity price strategy space, which achieves non-cooperative 
+coupling between supply and demand sides. The framework uses a 
+two-layer architecture: the upper layer optimizes mixed pricing strate­
+gies to dynamically balance conflicting interests and the lower layer 
+formulates the scheduling problem as a constrained Markov game. 
+Lagrangian relaxation is added to address power balance, temporal 
+coupling and resource competition constraints and exogenous and 
+endogenous uncertainties are explicitly quantified to ensure adapt­
+ability in real-time markets. Furthermore, the proposed SG-MADDPG 
+algorithm incorporates GNN enhanced adversarial dual-path critic to 
+address the environmental non-stationarity, DRO, curriculum learning 
+and risk-sensitive reward shaping to improve training stability and 
+operational robustness. Experimental results show that the online 
+inference per time step consists of forward propagation through 
+Table 5 
+Performance Comparison of Different Methods in Suzhou Case Study.
+Method
+MPC Method Based on Linear 
+Programming
+Traditional Stackelberg game 
+theory
+Standard MADDPG 
+algorithm
+DECI-VPP 
+method
+This article's 
+method
+Profit on the power supply side / 
+Million /￥
+242.42
+247.34
+265.65
+261.02
+276.05
+Load-side costs / Million /￥
+113.54
+114.63
+121.34
+125.03
+118.24
+Power imbalance penalty / Million 
+/￥
+40.23
+43.93
+45.42
+47.02
+39.96
+Overall profit / Million /￥
+88.65
+88.78
+98.89
+88.97
+117.85
+Default risk /%
+8.5
+6.2
+4.8
+3.2
+2.9
+Balanced quality indicators
+0.75
+0.68
+0.73
+0.78
+0.99
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+15 
+
+lightweight actor and critic networks, with an inference time of around 
+130–200 ms per time step on CPU-based industrial hardware, with GPU- 
+based execution reducing further the latency to feasible scheduling in­
+tervals. The method has a significant impact on improving global profit 
+and reducing DR by 65% under both baseline and high uncertainty 
+scenarios. In a real-world VPP case study in China, it is shown to increase 
+average profit by more than 20%, which supports the low-carbon tran­
+sition of power systems.
+Despite the benefits, there are some limitations to the framework. 
+First, the computational complexity is high with high dimensionality 
+uncertainty, which may be a challenge in real-time performance in 
+large-scale deployments, especially in cases with tens of thousands of 
+DERs. Second, the dual-agent simplification might result in suboptimal 
+results in highly heterogeneous or strongly coupled multi-energy sys­
+tems and does not fully capture dynamic real-world factors such as 
+network latency or device failures. Additionally, agent interactions that 
+involve data sharing, in particular, the transmission of price signals and 
+state information, are potentially privacy risks. To overcome these 
+limitations, future research efforts could focus on a number of im­
+provements: (1) expanding the framework to multi-energy VPP systems 
+that include thermal, hydrogen, and other forms of energy to increase 
+applicability, (2) using distributed computing or model compression 
+techniques to reduce the computational overhead and enable real-time 
+deployment, (3) incorporating privacy-preserving technologies, such 
+as blockchain, to secure data sharing, and (4) incorporating policy 
+incentive designs and testing the generalizability with large-scale in­
+ternational datasets. These enhancements are expected to greatly 
+enhance the practical deployability and application value of the 
+framework.
+Declaration of competing interest
+The authors declare that they have no known competing financial 
+interests or personal relationships that could have appeared to influence 
+the work reported in this paper.
+Acknowledgement
+None
+Fig. 9. Virtual power plant power dispatch status.
+Table 6 
+Performance Comparison of Different Methods in Anhui Case Study.
+Method
+MPC Method Based on Linear 
+Programming
+Traditional Stackelberg game 
+theory
+Standard MADDPG 
+algorithm
+DECI-VPP 
+method
+This article's 
+method
+Profit on the power supply side / 
+Million /￥
+937.38
+940.94
+933.02
+955.83
+944.48
+Load-side costs / Million /￥
+859.18
+859.32
+840.41
+860.93
+853.09
+Power imbalance penalty / Million 
+/￥
+58.76
+62.34
+72.03
+73.91
+56.61
+Overall profit / Million /￥
+19.44
+19.28
+20.58
+20.99
+24.78
+Default risk /%
+8.5
+7.9
+4.8
+1.2
+2.9
+Balanced quality indicators
+0.73
+0.64
+0.71
+0.76
+0.98
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+16 
+
+Appendix 
+A Proof of the necessary and sufficient conditions for Nash equilibrium:
+The necessary and sufficient condition for a Nash equilibrium is: 
+cost(π1) = cost(π2) = ⋯= cost(πn), ∀i and qi > 0
+(A1) 
+Necessity: Suppose q=(q1,q2,..,qn) is a Nash equilibrium and qi > 0 holds. Under the Nash equilibrium, the expected cost of the demand side is 
+minimized and a higher payoff cannot be obtained by adjusting q. Considering the optimization problem of the demand side: 
+min
+q Ul = −
+∑
+N
+i=1
+qi⋅cost(πi)
+(A2) 
+Using the Lagrange multiplier method, construct the Lagrange function as follows: 
+L(q, λ) =
+∑
+N
+i=1
+qi⋅cost(πi) + λ
+(
+1 −
+∑
+n
+i=1
+qi
+)
+(A3) 
+Take the partial derivative for each qi as follows: 
+∂L
+∂qi
+= cost(πi) −λ = 0, ∀i and qi > 0
+(A4) 
+Therefore, cost(πi) = λ,∀i and qi > 0.
+This implies that, for all pure strategies πi of qi > 0, their expected payoffs cost(πi) must be identical and equal to a constant λ. Otherwise, if there 
+exist strategies i and j such that cost(πi) > cost(πj) holds, the supply side could increase qi and decrease qj to improve the overall payoff Us. This 
+contradicts the definition of the Nash equilibrium, which precludes unilateral improvement; therefore, the claim is established.
+Sufficiency: Assumption 
+cost(π1) = cost(π2) = ⋯= cost(πn) = C
+(A5) 
+where c is a constant and q=(q1,q2,..,qn) satisfy ∑N
+i=1 qi = 1 and qi > 0.
+Simultaneously, the cost on the load side is as follows: 
+Ul =
+∑
+N
+i=1
+qicost(πi) =
+∑
+N
+i=1
+qi⋅c = c⋅
+∑
+N
+i=1
+qi = c
+(A6) 
+Regardless of how q is adjusted, the total cost, U = c, remains unchanged. Therefore, the supply side cannot increase its payoff by altering q. This 
+result verifies that the definition of the Nash equilibrium is satisfied.
+B Nash equilibrium solution Process
+Solving for Nash Equilibrium: 
+min
+q
+∑
+N
+i=1
+qi
+[( πi + Ci
+l
+)
+⋅min(pi⋅S, qi⋅L)
+]
+(B1) 
+Assuming that the electricity price πi is known, which implies that the second stage constitutes a complete information setting, the demand side 
+optimizes qi with the objective of minimizing its cost. At this stage, the Lagrangian multiplier method is employed to construct the corresponding 
+Lagrangian function as follows: 
+L(q, λ) =
+∑
+N
+i=1
+qi
+[( πi + Ci
+l
+)
+⋅min(piS, qiL)
+]
++ λ
+(
+1 −
+∑
+n
+i=1
+qi
+)
+(B2) 
+In the Lagrangian function, partial derivatives are taken with respect to each qi and set to zero. When the function involves piS > qiL, the expression 
+can be written as follows: 
+L(q, λ) =
+∑
+N
+i=1
+qi
+[(
+πi + λ2
+(qiL −piS
+qiL
+)2 )
+⋅piS
+]
++ λ
+(
+1 −
+∑
+n
+i=1
+qi
+)
+(B3) 
+The partial derivative result is expressed as follows: 
+piS⋅(πi + λ2) −λ2⋅(piS)3
+L2q2
+i
+−λ = 0
+(B4) 
+Solving for qi*: 
+qi* =
+(
+λ2(piS)3
+L2[piS(πi + λ2) −λ ]
+)1
+2
+(B5) 
+when piS < qiL is in the function, the function expression is as follows: 
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+17 
+
+L(q, λ) =
+∑
+N
+i=1
+qi
+[(
+πi + λ2
+(qiL −piS
+qiL
+)2 )
+⋅qiL
+]
++ λ
+(
+1 −
+∑
+n
+i=1
+qi
+)
+(B6) 
+The partial derivative result is expressed as follows: 
+2L(πi + λ2)qi −2Lλ2
+(piS
+L
+)
+−λ
+(B7) 
+Solving for qi*: 
+qi* = 2λ2piS + λ
+2L(πi + λ2)
+(B8) 
+The analysis indicates that qi* is not only functionally dependent on the supply-side strategy pi, but also on the cost λ of the demand side at the Nash 
+equilibrium under pure strategies. However, λ exhibits functional dependence on qi* as follows: 
+λ = cost(p*, π)
+(B9) 
+Therefore, qi* inherently forms recursive relationships. This circular dependency structure makes it impossible to directly derive qi* from closed- 
+form analytical expressions. Therefore, this study employs a deep reinforcement learning approach in which equilibrium strategies are obtained 
+through progressive numerical approximation until convergence is achieved.
+By substituting the optimal solution qi* as a condition in the analytical expression of the first stage, we can derive the optimal strategy for the 
+supply side in the first stage. Given the response function q*(p) of the demand side, the supply side optimizes the probability distribution p of 
+electricity prices, with the unit penalty cost of the supply–demand imbalance denoted as Ci s. Thus, the supply side optimization problem can be 
+formulated as follows:
+max
+p
+∑N
+i=1pi
+[( πi −Ci
+s
+)
+⋅min(piS, qiL)
+]
+, (B10)
+By substituting the derived expression of qi into the penalty term, the supply side optimizes pi to maximize profit. By taking the partial derivative of 
+pi and solving it under the given constraints using the Lagrange multiplier method, an analytical expression for optimal pi* can be obtained.
+C detailed training procedure of the SG-MADDPG Algorithm
+1) Initialize the actor and critic networks and target network parameters {θs, θl, θs’,θs’}.
+2) In each iteration, Agent S executes action pt, after which the environment generates real-time demand. Subsequently, Agent L performs action qt 
+and stores the experience (s,a,r1,…,rN,sʹ) in a shared replay buffer D.
+3) Dynamic Graph Construction: At each step, the node features hm + 1 s and hm + 1 l and the edge weights αi j are updated based on the current 
+observations. These updated representations are then processed through L layers of GAT to generate node embeddings, followed by graph con­
+volutional encoding.
+4) A mini-batch is sampled from D for the parameter update. The critic network is optimized by minimizing the temporal-difference (TD) error Li, 
+where the target value is computed as follows: 
+{
+ys = Ri + γQi
+(
+pʹ
+t, πʹ
+t, pʹ)
+yl = Ri + γQi
+(
+qʹ
+t, πʹ
+t, qʹ)
+(C1) 
+The strategy gradient for Actor network updates is expressed as follows: 
+∇θiJi ≈Eo
+[
+∇θiμθi(oi)⋅∇aiQμ
+i (o, a1, ..., ai, ..., aN)|ai=μθi(oi)
+]
+(C2) 
+Final target network soft update is expressed as follows: θ’←τθ+(1-τ) θ’.
+The Fig. C1 below shows the framework of the SG-MADDPG algorithm:
+Fig. C1. Algorithm framework diagram
+D Fixed-Point convergence and regret bounds of SG-MADDPG in Mixed-Strategy Markov Games
+This section proves that, under certain mild assumptions, the proposed algorithm converges to the fixed point corresponding to a subgame-perfect 
+Nash equilibrium and provides an average regret bound for the algorithm. The analysis builds on the theory of MARL in sequential games and extends 
+the standard MADDPG framework to handle heterogeneous agents, non-stationary environments, and uncertainties in VPPs.
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+18 
+
+Under mixed strategies, the policy πi:S→Δ(Ai) of each agent i maps states to probability distributions over actions. The joint policy is denoted by 
+π=(π1,•••, πN). The value function of agent i is defined as: 
+Vπ
+i (s) = E
+[ ∑
+∞
+t=0
+γtri(st, at)|s0 = s, π
+]
+(D1) 
+The Q function is: 
+Qπ
+i (s, a) = E
+[
+ri(s, a) + γVπ
+i (sʹ)|π
+]
+(D2) 
+Assumption 1 (Boundedness and Lipschitz Continuity): The reward function ri is bounded, i.e., |ri(s,a)|≤Rmax. The transition probability P and 
+the value function Vπ i are Lipschitz continuous with respect to the policy π:
+⃦⃦Vπ
+i −Vπʹ
+i
+⃦⃦⩽LV‖π −πʹ‖.
+Here LV > 0 is the Lipschitz constant. The state and action spaces are finite.
+Assumption 2 (DRO Robustness):The DRO optimizes over the worst-case distribution within the Wasserstein ambiguity set P, ensuring that the 
+sensitivity of the value function to uncertainty is bounded: sup
+ρ∈P
+⃒⃒Vπ
+i (s; ρ) −Vπ
+i (s; ρ0)
+⃒⃒⩽εDRO.
+Here ρ0 represents the nominal distribution.
+These assumptions are reasonable in the VPP scenario: the state space corresponds to power balance and price signals, the action space corresponds 
+to scheduling decisions, and the uncertainty is quantified through DRO.
+0D.1 Fixed-Point Convergence:
+Convergence of the SG-MADDPG algorithm to the fixed point of a SPNE under mixed strategies is theoretically proven. An SPNE is defined as a joint 
+policy profile π* that constitutes a Nash equilibrium ∀i, s, πʹ
+i : Vπ*
+i (s)⩾V(πʹ
+i(π*
+−i))
+i
+(s) in every subgame, with the sequential structure ensuring backward- 
+induction compatibility.
+Theorem D.1 (Fixed-Point Convergence):Under Assumptions 1 and 2, SG-MADDPG converges with probability 1 to the fixed point π* of a SPNE, 
+i.e., there exists an iteration step K such that for all k > K‖π(k)- π*‖,‖π(k)- π*‖≤ε, where ε > 0 can be arbitrarily small. The convergence rate is O(1/√k).
+Proof: The lower-level MARL converges to a fixed point.
+The lower level is a constrained Markov game, using Lagrange multipliers λ to handle constraints such as power balance: extending the reward r’i 
+= ri-λgi, where gi > 0 is the constraint violation. MADDPG Update: Actor 
+μ(k+1)
+i
+= μ(k)
+i
++ α∇θiJ(θi)
+(D3) 
+Critic uses least squares fitting: 
+Q(k+1)
+i
+= argminQE
+[
+(ri + γQi(sʹ, aʹ) −Q(s, a) )2 ]
+(D4) 
+GIADC introduces a dual-path approach: the positive path optimizes the local agent, while the negative path simulates the adversary, decoupling 
+non-stationarity. 
+⃦⃦⃦Q(k)
+i
+−Q*
+i
+⃦⃦⃦⩽(1 −β)k⃦⃦⃦Q(0)
+i
+−Q*
+i
+⃦⃦⃦+ O(LQ/β)
+(D5) 
+Where β is the contraction rate. By assumption 2, the gradient variance is bounded, leading to policy gradient convergence:E
+[⃦⃦∇J(k) −∇J* ⃦⃦2 ]
+→0. 
+Combining DRO, the overall convergence is to π* at a rate O(1/√k).
+0D.2 Regret Boundary:
+The regret measure is the cumulative difference between the algorithm and the optimal strategy. In mixed-strategy Markov games, the T-step 
+regret of agent i is: 
+RegT
+i = maxπʹ
+i
+∑
+T
+t=1
+(
+V(πʹ
+i,π(t)
+−i )
+i
+(st) −Vπ(t)
+i
+(st)
+)
+(D6) 
+Theorem D.2 (Average Regret Bound): Under Assumptions 1–2, the average regret of SG-MADDPG satisfies: 
+E
+[
+RegT
+i
+/
+T
+]
+⩽O
+(
+̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅
+|S ||A |(1 −γ)−1logT
+/
+T
+√
++ εDRO
+)
+(D7) 
+This is a sublinear regret.
+Proof: Using online gradient descent analysis. Actor update is equivalent to no-regret learning: the policy space ∏
+i = Δ(A i)|S | is convex. Gradient 
+estimate ̂∇J(t) = ∇J(t) + ξt, where noise ξt and bounded variance σ2. By online convex optimization, the regret bound is O
+(
+̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅
+Tlog
+⃒⃒∏
+i
+⃒⃒
+√
+)
+. In Markov 
+games, this is extended to the discounted horizon: effective horizon H=O(1/1-γ), total regret RegT⩽O
+(
+̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅
+HT|S ||A |logT
+√
+)
+. DRO adds an additive term 
+of εDROT. The sequential structure is propagated through backward induction: the regret bound of the upper level is passed to the lower level by 
+multiplying by the Lipschitz constant LV. After averaging, the bound is obtained.
+To demonstrate significant improvement over the traditional Stackelberg game formulation, this paper analyzes the performance bounds of SG- 
+MADDPG in repeated sequential games under uncertainty. Under standard assumptions commonly adopted in MARL regret analysis. Traditional 
+Stackelberg models, which assume pure strategies and perfect information, may incur unbounded regret in repeated, uncertain environments due to a 
+lack of dynamic adaptation. In contrast, the proposed framework, by incorporating mixed strategies and MARL, achieves no-regret learning with a sub- 
+linear bound.
+Theorem D.3 (Regret Bound in Repeated Game): For the repeated game over T time horizons, under assumptions 1 and 2, the average regret of 
+an agent satisfies: 
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+19 
+
+Regreti
+T = max
+πi
+∑
+T
+t=1
+(
+Vπi,π−i
+t
+(s) −Vπt
+t (s)⩽O
+(
+̅̅̅̅̅̅̅̅̅̅̅̅
+TlogT
+√
++ εDRO
+) )
+(D8) 
+Proof: Extending Theorem D.2 to the repeated setting, the analysis employs online gradient descent. The actor updates are no-regret in the 
+graphical policy space, and the GIADC provides β-contraction to decouple non-stationarity. By aggregating the regret over T rounds via the Hoeffding 
+inequality, a high-probability bound is obtained. The DRO supremum ensures robustness against uncertainty, yielding sub-linear average regret.
+From this regret bound, it can be inferred that the proposed method achieves asymptotic efficiency in the repeated VPP game: as T→∞, the average 
+regret approaches zero, implying convergence to a robust subgame perfect Nash equilibrium despite uncertainties. Traditional Stackelberg equilibria 
+often incur O(T) regret in repeated uncertain games due to their static pure strategies. The bound for the proposed method guarantees asymptotic 
+optimality, which correlates with the empirical profit increase and risk reduction observed in VPP scheduling.
+E robust Reward-Guided local convergence of DROMARL
+Theorem E1: Under standard assumptions (such as the concavity of the payoff function and the compactness of the policy space), the DROMARL 
+algorithm guided by the robust reward described above can locally converge to a partially robust Nash equilibrium.
+First, it is proven that, with a fixed opponent policy π-i, the individual Bruker optimization problem for each intelligence i is a strongly convex 
+problem, and its solution exists and is unique. Second, it is proven that the iterative update process of the entire policy profile constitutes a quasi- 
+monotonic variational inequality. Using Rosen's (1965) classic conclusion on the existence of equilibrium points in concave games, it can be 
+proven that the algorithm can converge to an equilibrium point.
+F experimental parameter Settings
+System parameter configuration:
+The VPP system comprises 5 distributed photovoltaic units, 3 energy storage units, 20 electric vehicles, 2 industrial load units, and 1 grid- 
+connected dispatch center. The simulation lasts 24 h, divided into 24 time periods, each lasting 1 h. Electricity prices are simulated based on real 
+electricity market data, with a base price of 0.5 yuan/kWh and a fluctuation range of [0.3, 0.8] yuan/kWh, exhibiting a random walk model due to 
+market uncertainties, as shown in Table F1 below.
+Table F1 
+Virtual power plant system parameters.
+Data types
+Value
+Unit
+Distributed photovoltaic units
+200
+kW
+Energy storage unit
+150
+kWh
+Initial value of SOC
+50%
+/
+Electric vehicles
+500
+kWh
+Initial SOC distribution range
+[20%,80%]
+/
+Industrial load unit
+150
+kW
+Load adjustment range
+[-30%,30%]
+/
+Power exchange at grid-connected dispatch center
+[-100,100]
+kW
+Basic electricity price
+0.5
+￥/kWh
+Electricity price fluctuation range
+[0.3,0.8]
+￥/kWh
+Uncertainty factors are modeled as follows:
+1) Renewable energy output uncertainty: Distributed photovoltaic output is based on historical meteorological data, with Gaussian noise added 
+(mean 0, variance 10% of predicted value), and time correlation is considered, with coefficient ρpv of 0.8.
+2) Load disturbance: Industrial load baseline is from the IEEE 33-node distribution network dataset, with random disturbances added based on a 
+Poisson process, an average event interval of 6 h, and an impact amplitude of ± 20 kW.
+3) Market electricity price uncertainty: Based on the random walk model of Equation 54, regression coefficient φ = 0.05, fluctuation term σπ =
+0.02, and jump probability 0.1.
+4) Internal uncertainty: Equipment failure probability 0.05/period, power degradation rate 2%/failure.
+In reinforcement learning training, considering that hyperparameters significantly affect training stability, convergence speed, and final perfor­
+mance, hyperparameters directly related to the learning process are given. At the same time, the setting of the coefficients of the reward function is 
+crucial; inappropriate coefficients can lead to an imbalance in the influence of certain reward terms on the agent's decision-making. Specifically, the 
+Actor network adopts a multilayer perceptron (MLP) architecture, which consists of three fully connected layers: the input layer dimension matches 
+the observation space size; the first hidden layer contains 256 neurons; and the second hidden layer contains 128 neurons, both employing ReLU 
+activation. The output layer dimension corresponds to the action space size, with a Softmax function applied to enforce probability distribution 
+constraints. The total number of parameters is approximately 15,000.
+In the GIADC architecture, the Critic network for each agent is based on a GAT comprising L = 2 GAT layers. Each GAT layer utilizes multi-head 
+attention, where the query-key vector dimension per head is 64. The node features are initialized with the observation dimension and aggregated via 
+GAT into a hidden representation hm. Subsequently, an MLP generates the final embedding for either the supply-side or load-side. The Critic outputs a 
+scalar Q-value through a linear layer. The total parameter count for the entire GIADC ranges approximately from 50,000 to 60,000.
+The time complexity of the proposed method is primarily dominated by the GAT operations and Critic updates. For N agents, the per-step 
+complexity of GAT aggregation is O=N2 • d, where d denotes the feature dimension; in practice, N remains small and manageable. The overall 
+training complexity is O = T • B • (N • d2)), with T representing the number of iterations and B the batch size. The space complexity involves 
+approximately 100,000 parameters, requiring around 500 MB of memory usage.
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+20 
+
+The parameters are shown in Tab. F2.
+Table F2 
+Training hyperparameters.
+Parameter types
+Value
+Unit
+Fully connected network
+3
+layer
+Activation function
+ReLU
+/
+Actor Learning Rate
+0.001
+/
+Critic learning rate
+0.002
+/
+Experience replay buffer
+10,000
+transitions
+Batch size
+128
+/
+Graph Attention Layer (GAT)
+2
+layer
+Training cycle
+20,000
+episodes
+Unit penalty cost coefficient λ
+0.5
+/
+Reward function parameters α
+0.30
+/
+Reward function parameters γ
+0.20
+/
+Reward function parameters μ
+0.45
+/
+Reward function parameters ρ
+0.15
+/
+Key implementation features:
+1) Softmax constraint: The Actor output layer uses Softmax to ensure that actions satisfy the probabilistic simplex constraint 
+(∑N
+i=1pi = 1, pi⩾0; ∑N
+i=1qi = 1, qi⩾0
+)
+.
+2) Policy embedding: The load-side Critic network is explicitly embedded into the power-side Actor network as a policy function to solve the 
+“expected response” problem in sequential decision-making.
+The experiment evaluated the following key metrics:
+1) Global Profit (GP): The overall revenue of the VPP, calculated as the profit on the power supply side minus the cost on the load side and the 
+penalty for power imbalance: 
+GP =
+∑
+profit(πi) −
+∑
+cost(πi)
+(F1) 
+2) Default Risk (DR): Defined as the probability that the power imbalance exceeds 5% of the rated power threshold, calculated through Monte 
+Carlo simulation of 100 disturbance scenarios: 
+DR =
+(∑N
+i=1I(|ΔPi| > θ )
+N
+)
+× 100%
+(F2) 
+3) Algorithm convergence speed: Measured by the number of iterations required for the reward function to converge to a stable value: 
+CS = min{t||R(t) −R(t −1) | < ε∀ksteps }
+(F3) 
+4) Robustness: Profit volatility under uncertainty is assessed using standard deviation. 
+Ro =
+̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅
+∑
+N
+i=1
+(GPi −μ)2
+N −1
+√
+√
+√
+√
+√
+(F4) 
+5) Equilibrium Quality Index (EI): The smaller the value, the closer it is to the subgame Nash equilibrium. Zero is the best value. 
+EI =
+2
+N −1
+∑
+N−1
+i=1
+⎛
+⎜
+⎜
+⎜
+⎝
+profit(πi) −profit(πi)
+profit(πi) + profit(πi)
++cost(πi) −cost(πi)
+cost(πi) + cost(πi)
+⎞
+⎟
+⎟
+⎟
+⎠, EI ∈[0, 1]
+(F5) 
+Case selection and data sources:
+Two representative cases were selected: (1) Suzhou Industrial Park VPP pilot: Located in the Yangtze River Delta region, rich in resource types, 
+including distributed photovoltaic, energy storage, and industrial load. (2) Xuancheng VPP pilot area in Anhui Province: Focusing on electric vehicle 
+clusters and renewable energy integration.
+Data source: The data for Suzhou Industrial Park comes from the “Analysis Report on the Development Status of Virtual Power Plants in the 
+Yangtze River Delta” (2024). The data for Anhui Province is based on the column “2024 China Virtual Power Plant Industry Research Report”. The 
+parameter Tab. F3 are as follows:
+Table. F3 
+. Virtual power plant core parameters.
+Data types
+(Su) Value
+Unit
+(An) Value
+Unit
+Total scale of aggregated resources
+14.62
+MW
+487.9
+MW
+Distributed photovoltaic
+13.60
+MW
+121.3
+MW
+Industrial load baseline
+14.62
+MW
+350.8
+MW
+Adjustable range
+[-25%,25%]
+/
+[-30%,30%]
+/
+Energy storage unit
+1.06
+MW
+5
+MW
+Electric vehicle cluster capacity
+0.39
+MW
+9.9
+MW
+Grid-connected adjustable load
+7.47
+MW
+113.2
+MW
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+21 
+
+Uncertainty factors are derived from meteorological data adapted from historical data of the China Meteorological Administration in the summer 
+of 2023, with photovoltaic power output fluctuating by 10%-15%; load disturbances are based on the IEEE dataset and adjusted to the Chinese in­
+dustrial load model using Poisson impact, with an average interval of 4 h and an amplitude of ± 15 kW; electricity price data are from the National 
+Energy Administration database, with a base price of 0.6 yuan/kWh and a fluctuation range of [0.4, 0.9] yuan/kWh. Historical operating data are 
+derived from actual profits and default events from the 2023 operating indicators summarized in the report. The simulation environment uses 
+MATLAB/Simulink combined with Pytorch, with a time span of 24 h and 24 time periods. The MADRL algorithm uses optimized parameters.
+The analysis process consists of three steps: (1) Data preprocessing and uncertainty modeling: Import real historical data and add random dis­
+turbances to simulate the actual environment. (2) Model application: Embed the SG-MADDPG framework into the case system, with the upper layer 
+using sequential game optimization of the electricity price hybrid strategy and the lower layer using multi-agent reinforcement learning to schedule 
+specific units. (3) Performance Evaluation: Calculate key performance indicators and compare them with actual operating benchmarks. Uncertainty 
+modeling is the same as in the experimental section above. In the SG-MADDPG application, the power supply side acts as the leader to formulate the 
+electricity pricing strategy p, and the load side acts as the follower to adjust q. DRO ensures convergence to Nash equilibrium.
+Data availability
+Data will be made available on request.
+References
+Zhou, X., Qi, L., Pan, N., et al. (2025). Optimization method for load aggregation 
+scheduling in industrial parks considering multiple interests and adjustable load 
+classification[J]. Energy, 326, Article 135887. https://doi.org/10.1016/j. 
+energy.2025.135887
+Lin, X., Lin, X., Zhong, W., et al. (2023). Predictive operation optimization of multi- 
+energy virtual power plant considering behavior uncertainty of diverse stakeholders 
+[J]. Energy, 280, Article 128130. https://doi.org/10.1016/j.energy.2023.128130
+Yao, H., Xiang, Y., Gu, C., et al. (2024). Optimal planning of distribution systems and 
+charging stations considering PV-Grid-EV transactions[J]. IEEE transactions on smart 
+grid, 16(1), 691–703. https://doi.org/10.1109/TSG.2024.3429371
+Yang, T., Dang, Z., Wang, X., et al. (2025). Comprehensive carbon accounting for power 
+systems considering hybrid power trading mode[J]. Energy, 333, Article 136897. 
+https://doi.org/10.1016/j.energy.2025.136897
+Meng, H., Jia, H., Xu, T., et al. (2025). Internal pricing driven dynamic aggregation of 
+virtual power plant with energy storage systems[J]. Energy, 321, Article 135470. 
+https://doi.org/10.1016/j.energy.2025.135470
+Xu, Y., Zhang, X., & Li, J. (2024). Multiple energy planning in the energy hub considering 
+renewable sources, electric vehicles and management in the daily electricity market 
+with wind multi-objective optimization algorithm[J]. Energy, 309, Article 133120. 
+https://doi.org/10.1016/j.energy.2024.133120
+Lin, W., Wang, Y., Wu, J., et al. (2025). Model-Free Aggregation for Virtual Power Plants 
+using Input Convex Neural Networks[J]. IEEE Transactions on Smart Grid, 16(3), 
+2404–2415. https://doi.org/10.1109/TSG.2025.3548026
+Liu, X., Ye, Y., Li, S., et al. (2025). Carbon-Aware Peer-to-Peer Energy Trading in an 
+Unbalanced distribution Network via a Nash Equilibrium Discovery Deep 
+Reinforcement Learning Approach[J]. IEEE Transactions on Smart Grid, 16(4), 
+3392–3407. https://doi.org/10.1109/TSG.2025.3561515
+Liu, L., Hu, X., Lin, K., et al. (2024). Distributed low-carbon scheduling strategy for 
+distribution networks considering carbon emission allocation[J]. Proceedings of the 
+CSEE, 44(24), 9594–9607. https://doi.org/10.13334/j.0258-8013.pcsee.240467.
+Kim, H. J., & Kim, M. K. (2023). A novel deep learning-based forecasting model 
+optimized by heuristic algorithm for energy management of microgrid[J]. Applied 
+Energy, 332, Article 120525. https://doi.org/10.1016/j.apenergy.2022.120525
+Jendoubi, I., & Bouffard, F. (2023). Multi-agent hierarchical reinforcement learning for 
+energy management[J]. Applied Energy, 332, Article 120500. https://doi.org/ 
+10.1016/j.apenergy.2022.120500
+Zhang, Y., Liu, F., Wang, Z., et al. (2021). Robust scheduling of virtual power plant under 
+exogenous and endogenous uncertainties[J]. IEEE Transactions on Power Systems, 37 
+(2), 1311–1325. https://doi.org/10.1109/TPWRS.2021.3105418
+Guo, J., Dou, C., Yue, D., et al. (2025). Multiagent System-based VPPs Cooperative Power 
+Control for Frequency Regulation considering Diverse Communication Issues[J]. 
+IEEE Transactions on Smart Grid, 16(4), 2846–2857. https://doi.org/10.1109/ 
+TSG.2025.3557436
+Song, X., Wu, H., Zhang, J., et al. (2025). Optimal operation of shared energy storage- 
+assisted wind-solar-thermal power generation systems under the electricity-carbon 
+markets[J]. Energy, 330, Article 136614. https://doi.org/10.1016/j. 
+energy.2025.136614
+Thangavelu, S. R., Tafone, A., Gunasekhara, I., et al. (2025). Cryo-polygeneration plant-a 
+novel operation algorithm leveraging adaptive AI energy systems models for urban 
+microgrids[J]. Applied Energy, 383, Article 125361. https://doi.org/10.1016/j. 
+apenergy.2025.125361
+Alam, K. S., Kaif, A. M. A. D., & Das, S. K. (2024). A blockchain-based optimal peer-to- 
+peer energy trading framework for decentralized energy management with in a 
+virtual power plant: Lab scale studies and large scale proposal[J]. Applied Energy, 
+365, Article 123243. https://doi.org/10.1016/j.apenergy.2024.123243
+Zhou, K., Peng, N., Yin, H., et al. (2023). Urban virtual power plant operation 
+optimization with incentive-based demand response[J]. Energy, 282, Article 128700. 
+https://doi.org/10.1016/j.energy.2023.128700
+Yin, L., & Ye, Y. (2025). Distributed multi-objective african vulture accelerated 
+optimization intelligent algorithm for multi-objective economic dispatch of power 
+systems[J]. Applied Energy, 398, Article 126377. https://doi.org/10.1016/j. 
+apenergy.2025.126377
+H¨aberle, V., Tayyebi, A., He, X., et al. (2023). Grid-forming and spatially distributed 
+control design of dynamic virtual power plants[J]. IEEE Transactions on Smart Grid, 
+15(2), 1761–1777. https://doi.org/10.1109/TSG.2023.3311481
+Zhang, K., Xie, Y., Liu, N., et al. (2025). Customized mean Field Game Method of Virtual 
+Power Plant for Real-Time Peak Regulation[J]. IEEE Transactions on Sustainable 
+Energy, 16(2), 1453–1466. https://doi.org/10.1109/TSTE.2025.3533929
+Xu, X., Xu, K., Zeng, Z., et al. (2024). Collaborative optimization of multi-energy multi- 
+microgrid system: A hierarchical trust-region multi-agent reinforcement learning 
+approach[J]. Applied Energy, 375, Article 123923. https://doi.org/10.1016/j. 
+apenergy.2024.123923
+Roy, A. M., & Bhaduri, J. (2023). DenseSPH-YOLOv5: An automated damage detection 
+model based on DenseNet and Swin-Transformer prediction head-enabled YOLOv5 
+with attention mechanism[J]. Advanced Engineering Informatics, 56, Article 102007. 
+https://doi.org/10.1016/j.aei.2023.102007
+Jiang, B., Chen, S., Wang, B., et al. (2022). MGLNN: Semi-supervised learning via 
+multiple graph cooperative learning neural networks[J]. Neural Networks, 153, 
+204–214. https://doi.org/10.1016/j.neunet.2022.05.024
+Guo, X., Peng, J., Wu, J., et al. (2025). Energy-Efficient integrated thermal management 
+for electric vehicles using evolutionary deep reinforcement learning[J]. Expert 
+Systems with Applications, 299, Article 130331. https://doi.org/10.1016/j. 
+eswa.2025.130331
+Li, F., Liu, L., & Yu, Y. (2025). Deep reinforcement learning-based multi-objective 
+optimization for electricity–gas–heat integrated energy systems[J]. Expert Systems 
+with Applications, 262, Article 125558. https://doi.org/10.1016/j.eswa.2024.125558
+Guan, Y., Ma, W., Che, L., et al. (2025). Model-based Safe Reinforcement Learning for 
+active distribution Network Scheduling[J]. IEEE Transactions on Smart Grid, 16(3), 
+2375–2388. https://doi.org/10.1109/TSG.2025.3547843
+Wei, X., Chan, K. W., Wang, G., et al. (2025). Robust preventive and corrective security- 
+constrained OPF for worst contingencies with the adoption of VPP: A safe 
+reinforcement learning approach[J]. Applied Energy, 380, Article 124970. https:// 
+doi.org/10.1016/j.apenergy.2024.124970
+Srivastava, A., Zhao, J., Zhu, H., et al. (2024). Distribution system behind-the-meter ders: 
+Estimation, uncertainty quantification, and control[J]. IEEE Transactions on Power 
+Systems, 40(1), 1060–1077. https://doi.org/10.1109/TPWRS.2024.3404815
+Upadhayay, A., Chauhan, G. S., & SatCoBiLSTM, M. Y. K. (2024). Self-attention based 
+hybrid deep learning framework for crisis event detection in social media. Expert 
+Systems with Applications[J]., 249, Article 123604. https://doi.org/10.1016/j. 
+eswa.2024.123604
+Xu Q, Su Z, Li P, et al. Cooperative Energy Provisioning Services with Virtual Power 
+Plants in Smart Grid Internet of Things: A Coalition-Stackelberg Game Approach[J]. 
+IEEE Internet of Things Journal, 2025, 12(16): 32980 - 32993. https://doi.org/ 
+10.1109/JIOT.2025.3561949.
+Zhang, L., Qu, C., Zeng, Q., et al. (2025). Optimizing privacy-preserving collaborative 
+energy management for port cluster virtual power plants in the electricity market 
+environment[J]. Energy, 338, Article 138865. https://doi.org/10.1016/j. 
+energy.2025.138865
+Liu, J., Samson, S. Y., Hu, H., et al. (2022). Demand-side regulation provision of virtual 
+power plants consisting of interconnected microgrids through double-stage double- 
+layer optimization[J]. IEEE Transactions on Smart Grid, 14(3), 1946–1957. https:// 
+doi.org/10.1109/TSG.2022.3203466
+Fan, B., Liu, X., Xiao, G., et al. (2025). A Memory-based Graph Reinforcement Learning 
+Method for critical load Restoration with Uncertainties of distributed Energy 
+Resource[J]. IEEE Transactions on Smart Grid, 16(2), 1706–1718. https://doi.org/ 
+10.1109/TSG.2024.3482696
+Lu, X., Qiu, J., Zhang, C., et al. (2023). Assembly and competition for virtual power 
+plants with multiple ESPs through a “recruitment–participation” approach[J]. IEEE 
+Transactions on Power Systems, 39(2), 4382–4396. https://doi.org/10.1109/ 
+TPWRS.2023.3296738
+Fan, Z., Zhang, W., & Liu, W. (2023). Multi-agent deep reinforcement learning-based 
+distributed optimal generation control of DC microgrids[J]. IEEE Transactions on 
+Smart Grid, 14(5), 3337–3351. https://doi.org/10.1109/TSG.2023.3237200
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+22 
+
+Dai, Z., Tan, M., Yang, Y., et al. (2025). Massive Coordination of distributed Energy 
+Resources in VPP: A mean Field RL-Based Bi-Level Optimization Approach[J]. IEEE 
+Transactions on Cybernetics, 55(3), 1332–1346. https://doi.org/10.1109/ 
+TCYB.2024.3525121
+Chen, X., Qu, G., Tang, Y., et al. (2022). Reinforcement learning for selective key 
+applications in power systems: Recent advances and future challenges[J]. IEEE 
+Transactions on Smart Grid, 13(4), 2935–2958. https://doi.org/10.1109/ 
+TSG.2022.3154718
+Golpîra, H., & Marinescu, B. (2024). Enhanced frequency regulation scheme: An online 
+paradigm for dynamic virtual power plant integration[J]. IEEE Transactions on Power 
+Systems, 39(6), 7227–7239. https://doi.org/10.1109/TPWRS.2024.3368796
+Liu, S., Luo, W., Zhou, Y., et al. (2023). Transmission interface power flow adjustment: A 
+deep reinforcement learning approach based on multi-task attribution map[J]. IEEE 
+Transactions on Power Systems, 39(2), 3324–3335. https://doi.org/10.1109/ 
+TPWRS.2024.3368796
+Shao, Z., Wang, W., Eldridge, B., et al. (2024). Real-Time Economic Dispatch Approach 
+for wholesale Energy Market with Multi-Transmission-Node DER Aggregation[J]. 
+IEEE Transactions on Power Systems, 16(2), 1706–1718. https://doi.org/10.1109/ 
+TPWRS.2024.3507750
+Zhang, K., Xie, Y., Liu, N., et al. (2025). Secondary Frequency Regulation via EV 
+Aggregation based Virtual Power Plants: A mean Field Game Strategy[J]. IEEE 
+Transactions on Smart Grid, 16(5), 3919–3933. https://doi.org/10.1109/ 
+TSG.2025.3578387
+Zhou, L., & Preindl, M. (2023). Variable switching frequency techniques for power 
+converters: Review and future trends[J]. IEEE Transactions on Power Electronics, 38 
+(12), 15603–15619. https://doi.org/10.1109/TPEL.2023.3317232
+Chen, H., Zhu, Y., Liang, Z., et al. (2024). Energy scheduling of virtual power plants: A 
+data-driven enclosing polyhedron method[J]. IEEE Transactions on Industrial 
+Informatics, 21(2), 1170–1179. https://doi.org/10.1109/TII.2024.3470906
+Wu, J. K., Liu, Z. W., Li, C., et al. (2024). Coordinated operation strategy of virtual power 
+plant based on two-layer game approach[J]. IEEE Transactions on Smart Grid, 16(1), 
+554–567. https://doi.org/10.1109/TSG.2024.3440315
+Li, Y., Chang, W., & Yang, Q. (2025). Deep reinforcement learning based hierarchical 
+energy management for virtual power plant with aggregated multiple heterogeneous 
+microgrids[J]. Applied Energy, 382, Article 125333. https://doi.org/10.1016/j. 
+apenergy.2025.125333
+Huang, M., Malham´e, R. P., & Caines, P. E. (2006). Large population stochastic dynamic 
+games: closed-loop McKean-Vlasov systems and the Nash certainty equivalence principle 
+[J]., 6(3), 221–252. https://doi.org/10.4310/cis.2006.v6.n3.a5
+Singh, K. N., Goswami, A. K., Chudhury, N. B. D., et al. (2025). A risk-aware bidding 
+model for virtual power plants: Integrating renewable energy forecasting and carbon 
+market strategies[J]. Energy Reports, 14, 1222–1239. https://doi.org/10.1016/j. 
+egyr.2025.07.032
+Bertsimas, D., Gupta, V., & Kallus, N. (2018). Data-driven robust optimization[J]. 
+Mathematical Programming, 167(2), 235–292. https://doi.org/10.1007/s10107-017- 
+1125-8
+Mohajerin Esfahani, P., & Kuhn, D. (2018). Data-driven distributionally robust 
+optimization using the Wasserstein metric: Performance guarantees and tractable 
+reformulations[J]. Mathematical Programming, 171(1), 115–166. https://doi.org/ 
+10.1007/s10107-017-1172-1
+Gulrajani, I., Ahmed, F., Arjovsky, M., et al. (2017). Improved training of wasserstein 
+gans[J]. Advances in neural information processing systems, 30, 5769–5779. https://dl. 
+acm.org/doi/abs/10.5555/3295222.3295327.
+Chen, Y., Lin, Z., & Müller, H. G. (2023). Wasserstein regression[J]. Journal of the 
+American Statistical Association, 118(542), 869–882. https://doi.org/10.1080/ 
+01621459.2021.1956937
+Geffner T, Antoran J, Foster A, et al. Deep end-to-end causal inference[J]. arXiv preprint 
+arXiv:2202.02195, 2022. https://arxiv.org/abs/2202.02195.
+Z. Peng and T. Heng                                                                                                                                                                                                                           
+Expert Systems With Applications 310 (2026) 131263 
+23 

@@ -1,0 +1,2066 @@
+Contents lists available at ScienceDirect
+Expert Systems With Applications
+journal homepage: www.elsevier.com/locate/eswa
+Dynamic cognitive cycle-driven multimodal agent for knowledge graph 
+completion 
+Kai Yang
+a, Xinzhi Wang
+a, Baoguo Lu
+b, Xiangfeng Luo
+a,∗, Chengfan Li
+a, 
+Jianqiang Huang
+a
+a Knowledge Science and Intelligent Generation Laboratory, Shanghai University, No. 99 Shangda Road, Shanghai, 200444, Shanghai, China
+b Nanjing Research Institute of Electronics Engineering&Nanjing University, 163 Xianlin Avenue, Nanjing, 210023, Jiangsu, China
+a r t i c l e  i n f o
+Keywords:
+Multimodal knowledge graph completion
+Intelligent agents
+Perception
+Memory mechanisms
+Self-alignment learning
+ 
+a b s t r a c t
+Multimodal Knowledge Graph Completion (MMKGC) is essential for addressing information scarcity in structured 
+knowledge bases. However, conventional methods typically adhere to a static embedding paradigm, where ﬁxed 
+entity representations fail to capture query-speciﬁc semantics, limiting reasoning ﬂexibility. To overcome this, 
+we propose a context-aware MMKGC Agent built on a tightly coupled, closed-loop cognitive architecture. Unlike 
+modular pipelines that rely on the sequential stacking of encoders, our agent establishes a functional interde-
+pendency between representational plasticity and semantic stability. Speciﬁcally, the agent initiates a dual-path 
+perception to extract global-local structural cues, which are subsequently transformed into dynamic memory 
+states via a Learnable Residual Memory Pathway (LRMP). This allows the agent to actively synthesize internal 
+representations tailored to the speciﬁc intent of each query. To counterbalance the representational drift inher-
+ent in such dynamic adaptation, we integrate a Self-Alignment Stabilization system that utilizes a redundancy-
+reducing objective to serve as a semantic anchor. This mechanism ensures that the agent’s adaptive reasoning 
+remains intrinsically coherent and robust against multimodal noise. Extensive experiments on four benchmarks 
+(DB15K, MKG-W/Y, KVC16K) demonstrate that this synergistic paradigm consistently surpasses state-of-the-art 
+baselines, particularly in resolving complex, ambiguous reasoning tasks where static models fail.
+1.  Introduction
+Multimodal Knowledge Graphs (MMKGs) (Chen et al., 2024; Gong 
+et al., 2024) provide a uniﬁed representation of the world by com-
+bining the structured logic of triples with the perceptual richness of 
+multimodal data such as images and textual descriptions. This integra-
+tion enables MMKGs to capture comprehensive semantics and support 
+advanced applications in recommendation systems (Sun et al., 2020), 
+computer vision, and natural language processing (Chen et al., 2023). 
+Despite this potential, MMKGs are inherently incomplete due to the 
+scarcity of multimodal corpora and the complexity of modality align-
+ment, leading to missing structural and semantic information. Conse-
+quently, MMKGC (Chen et al., 2024) has emerged as a critical research 
+focus.
+Existing MMKGC methods (Cao et al., 2022b; Lee et al., 2023; Li 
+et al., 2023; Mousselly-Sergieh et al., 2018a; Zhang et al., 2025), how-
+ever, largely follow a static embedding paradigm, in which each en-
+tity is assigned a single, context-independent representation after initial 
+∗Corresponding author.
+ 
+E-mail addresses: yk2001@shu.edu.cn (K. Yang), wxz2017@shu.edu.cn (X. Wang), 632024230008@smail.nju.edu.cn (B. Lu), luoxf@shu.edu.cn (X. Luo), 
+lchf@shu.edu.cn (C. Li), huangjq@shu.edu.cn (J. Huang).
+encoding. Speciﬁcally, entity embeddings are typically produced by pre-
+trained multimodal encoders (e.g., BERT (Devlin et al., 2019) for tex-
+tual descriptions or ImageNet-pretrained CNNs for images) whose out-
+puts are often kept frozen and reused across diﬀerent queries; hence the 
+representation of an entity ℎ in (ℎ, 𝑟1, ?) is identical to that in (ℎ, 𝑟2, ?). 
+Although these methods incorporate multimodal signals, the fusion is of-
+ten coarse-grained (e.g., instance-level averaging or modality-level pool-
+ing) and heavily relies on ﬁxed pretrained features, limiting their capac-
+ity to model ﬁne-grained, query-sensitive entity–relation interactions. 
+Consequently, such static representations struggle to adaptively align 
+with the speciﬁc intent of varying queries, constraining the reasoning 
+capability in complex multimodal environments.
+To address these challenges, we propose a context-aware MMKGC 
+Agent with local memory enhancement. Unlike conventional models 
+that rely on static embeddings, our agent establishes a uniﬁed closed-
+loop cognitive architecture to achieve dynamic adaptive reasoning. 
+The core innovation of this framework lies in its transition from passive 
+perception to an interdependent cognitive cycle that balances repre-
+https://doi.org/10.1016/j.eswa.2026.132001
+Received 21 September 2025; Received in revised form 8 February 2026; Accepted 6 March 2026
+Expert Systems With Applications 318 (2026) 132001 
+Available online 11 March 2026 
+0957-4174/© 2026 Published by Elsevier Ltd. 
+
+K. Yang et al.
+Fig. 1. Examples of multimodal link prediction.
+sentational plasticity with semantic stability. While utilizing a Dual-Path 
+Encoder to perceive basic global and local structures, the agent employs 
+a Learnable Residual Memory Pathway (LRMP) to actively synthe-
+size query-dependent memory states ̃𝐡′′. This mechanism provides the 
+necessary plasticity for the agent to reconstruct entity representations 
+based on speciﬁc relational contexts. Simultaneously, to counterbalance 
+the representational drift inherent in such dynamic adaptation, we inte-
+grate a Self-Alignment Stabilization system that utilizes a redundancy-
+reducing Barlow Twins objective to enforce intrinsic coherence. This 
+system acts as a semantic anchor, ensuring that the agent’s adaptive 
+reasoning remains grounded. Finally, the Reasoning & Action module 
+translates these reﬁned internal states into explicit behaviors, executing 
+robust link prediction as the agent’s external action (as shown in Fig. 1). 
+This synergistic architecture empowers the agent to actively perceive 
+structural cues, maintain context-aware memory, and purify semantic 
+signals, thus overcoming the structural rigidity of static models.
+In summary, our contributions are threefold:
+• We introduce an Agent-Based Paradigm for MMKGC that funda-
+mentally shifts the approach from static embedding matching to dy-
+namic cognitive reasoning. Moving beyond simple component stack-
+ing, this architecture establishes a functional interdependency be-
+tween perception, memory, and calibration to bridge global-local 
+structural modeling with adaptive context-awareness.
+• We propose a query-dependent Learnable Residual Memory Path-
+way that provides the agent with representational plasticity. By 
+dynamically encoding ﬁne-grained entity–relation interactions into 
+short-term memory ̃𝐡′′, this mechanism breaks the static embedding 
+bottleneck and enables the generation of context-sensitive semantics 
+tailored to the current task.
+• We design a Semantic Self-Alignment mechanism that serves as a
+stability anchor. By employing a redundancy-reduction objective, it 
+enforces intrinsic representational coherence to counterbalance dy-
+namic memory adaptation, thereby strengthening the agent’s robust-
+ness against multimodal noise and prevent semantic drift during rea-
+soning.
+Extensive experiments on public MMKG benchmarks (Liu et al., 
+2019; Xu et al., 2022) demonstrate that our agent consistently out-
+performs over twenty state-of-the-art baselines, establishing a new 
+paradigm for adaptive multimodal knowledge completion.
+2.  Related work
+2.1.  Multi-modal knowledge graph completion
+Multi-modal knowledge graphs (MMKGs) (Chen et al., 2024) ex-
+tend traditional knowledge graphs by incorporating diverse multi-
+modal information, such as images, text descriptions, and other sensory 
+data (Wang et al., 2023b), to enrich entity representations and enhance 
+their contextual understanding. However, the inherent incompleteness 
+of MMKGs poses signiﬁcant challenges. Multimodal knowledge graph 
+completion (MMKGC) aims to address this issue by leveraging both the 
+structural information within triples and the multimodal characteristics 
+of entities to predict missing links (Bordes et al., 2013).
+Existing MMKGC methods primarily focus on integrating multimodal 
+information into knowledge graph embedding (KGE) models (Bordes 
+et al., 2013), which can be broadly categorized into three main ap-
+proaches:
+1. Multimodal Fusion Methods: These approaches unify multi-
+modal information by extracting and integrating embeddings from 
+diﬀerent modalities. For example, IKRL (Xie et al., 2017) incorpo-
+rated visual information into the TransE model (Bordes et al., 2013). 
+TBKGC (Mousselly-Sergieh et al., 2018b) further extended this by inte-
+grating both visual and textual data. TransAE (Wang et al., 2019) em-
+ployed autoencoders for multimodal fusion, while RSME (Wang et al., 
+2021) utilized gates to selectively incorporate relevant visual informa-
+tion. MyGO (Zhang et al., 2025) leveraged VisualBERT for deep multi-
+modal feature extraction, and OTKGE (Cao et al., 2022a) utilized opti-
+mal transport for multimodal fusion. More recently, APKGC (Jian et al., 
+2025a) enhanced multimodal fusion through noise-augmented visual 
+features and an attention penalty mechanism, which aims to suppress 
+overly dominant modalities during representation learning. AMIT (Jian 
+et al., 2025b) proposed an adaptive modality interaction transformer 
+that models cross-modality relations through dynamic attention, en-
+abling more ﬂexible and ﬁne-grained modality interactions. While these 
+methods improve the integration of multimodal features, they typically 
+rely on direct feature-level fusion and overlook deeper structural inter-
+actions within the graph.
+2. Modal Ensemble Methods: These methods learn separate models 
+for each modality and subsequently combine their predictions through 
+ensemble learning techniques. For instance, IMF (Li et al., 2023) devel-
+oped separate MMKGC models using distinct modality information and 
+combined their outputs for joint decision-making. AdaMF-MAT (Zhang 
+et al., 2024b) further introduced a modality-aware adaptive fusion 
+mechanism through multi-head attention, enabling a more ﬂexible en-
+semble of modality-speciﬁc predictors. Although these methods eﬀec-
+tively utilize the unique features of each modality, they often treat each 
+modality as an independent entity, limiting the exploration of modality 
+interactions and the local structural semantics inherent in the knowl-
+edge graph.
+3. Negative Sampling Enhanced Methods: These approaches focus 
+on improving the negative sampling process in KGE models by incor-
+porating multimodal information. MMRNS (Xu et al., 2022) enhanced 
+the negative sampling process by utilizing modality-speciﬁc informa-
+tion, while MANS (Zhang et al., 2023) proposed a modality-aware nega-
+tive sampling method to better align structural and multimodal features. 
+Expert Systems With Applications 318 (2026) 132001 
+2 
+
+K. Yang et al.
+In addition, DSGNN (Li et al., 2025) introduced a decoupled semantic 
+graph neural network to separately model relational semantics and en-
+tity semantics, which improves the robustness of the embedding process 
+and beneﬁts negative sampling by generating more consistent semantic 
+spaces. Although these methods improve the quality of negative samples 
+or semantic embeddings, they still predominantly focus on the structural 
+aspects of the knowledge graph.
+Overall, despite their diverse fusion strategies, existing methods gen-
+erally treat MMKGC as a static embedding problem. Once trained, the 
+representation of an entity remains ﬁxed, making it diﬃcult to adap-
+tively capture ﬁne-grained, query-speciﬁc semantics. In contrast to these 
+feature-level or ensemble-based methods, our work introduces an archi-
+tectural paradigm shift from static representation learning to dynamic 
+cognitive reasoning. Instead of merely stacking perceptual modules, we 
+propose an MMKGC-Agent that utilizes a LRMP to actively construct 
+context-aware memory states. This enables the model to dynamically 
+adjust its internal representations based on the speciﬁc query intent, 
+fundamentally overcoming the “static bottleneck” of prior arts.
+2.2.  Contrastive learning
+Contrastive learning (Chen et al., 2020b; Cheng et al., 2020) is a 
+powerful technique for learning representations by pulling similar data 
+points closer and pushing dissimilar ones apart. Instance discrimina-
+tion methods, such as SimCLR (Chen et al., 2020b) and MoCo (He 
+et al., 2020), treat each instance as a distinct class, learning embed-
+dings by contrasting augmented views. Clustering-based methods like 
+SwAV (Caron et al., 2020) generate pseudo-labels to improve seman-
+tic understanding. Supervised contrastive learning (SupCon) (Khosla 
+et al., 2020) leverages labeled data to optimize class separation. How-
+ever, most of these methods rely on negative sampling (InfoNCE loss), 
+which can be computationally expensive and sensitive to batch sizes. In 
+the context of our MMKGC-Agent, we diverge from standard instance 
+discrimination. Instead, we adopt a redundancy-reduction approach in-
+spired by Barlow Twins. We repurpose this objective as an internal se-
+mantic calibration mechanism. Rather than just distinguishing entities, 
+our goal is to decorrelate the feature components within the multimodal 
+embeddings, eﬀectively “purifying” the signal from noise and modality-
+speciﬁc redundancy. This ensures that the agent’s constructed memory 
+is built upon distinct and semantically rich representations, enhancing 
+robustness against modality dropout.
+3.  Task deﬁnition
+We formalize the multimodal knowledge graph environment as 𝐺=
+(𝐸, 𝑅, 𝑇, 𝑉, 𝐶), where 𝐸 denotes the set of entities, 𝑅 the set of relations, 
+and 𝑇= {(ℎ, 𝑟, 𝑡) ∣ℎ, 𝑡∈𝐸, 𝑟∈𝑅} the observed triple set. Each entity 𝑒∈
+𝐸 is associated with multimodal perceptual signals: a collection of visual 
+inputs 𝑉(𝑒) and textual descriptions 𝐶(𝑒). This formulation captures both 
+the logical structure and the perceptual diversity of the data, deﬁning 
+the external environment with which the agent interacts.
+The objective of knowledge graph completion is reformulated here as 
+a context-aware agentic decision process. Unlike static paradigms that 
+map entities to ﬁxed points in a vector space, our agent operates dy-
+namically. Given an incomplete query (observation) such as (ℎ, 𝑟, ?), the 
+agent does not merely retrieve a static embedding for ℎ. Instead, it must 
+actively construct a query-dependent memory state based on the interac-
+tion between ℎ and 𝑟. Formally, the agent learns a policy parameterized 
+by a scoring function 𝑆(̃𝐡′′, 𝑡) ∶× 𝐸→ℝ, where ̃𝐡′′ ∈ represents 
+the dynamically generated memory state of the head entity under re-
+lation 𝑟, and 𝑡 is a candidate tail entity. The goal is to maximize the 
+plausibility score of the ground-truth action (entity selection) by reﬁn-
+ing internal memory states rather than just static features.
+During the inference phase, the agent executes completion actions. 
+For a query (ℎ, 𝑟, ?), the agent ﬁrst transitions its internal state to re-
+ﬂect the speciﬁc semantic context of 𝑟 and then evaluates all candidates 
+𝑒∈𝐸 based on this updated state. The agent’s success is measured by 
+the ranking of the correct entity using standard metrics such as Mean 
+Rank (MR), Mean Reciprocal Rank (MRR), and Hits@K. This evalua-
+tion reﬂects the agent’s ability to perceive multimodal cues, construct 
+context-aware memory, and perform robust reasoning in partial envi-
+ronments.
+4.  Methodology
+In this section, we present the MMKGC-Agent, a uniﬁed cognitive 
+framework designed to transcend the limitations of static representa-
+tion learning. Distinct from traditional completion models that passively 
+assign ﬁxed embeddings to entities, the MMKGC-Agent operates as an 
+active cognitive entity. The architecture is built upon a tightly coupled, 
+closed-loop cognitive cycle that balances representational plasticity with 
+semantic stability. It employs a sensory backbone to perceive multi-
+modal signals, but crucially, it relies on a Learnable Residual Memory 
+Pathway (LRMP) to actively construct and update short-term local mem-
+ory states tailored to the current query. This process is further stabilized 
+by an internal self-alignment mechanism that prevents representational 
+drift during dynamic adaptation. By shifting the focus from static en-
+coding to dynamic state construction, the agent is capable of adapting 
+its internal semantics to varying relational contexts, thereby achieving 
+robust reasoning even in incomplete or noisy environments. The overall 
+structure of the MMKGC-Agent is shown in Fig. 2.
+4.1.  Perception module: Fine-grained global–local dual-path perception
+The perception module (Hong et al., 2024; Wang et al., 2023a) en-
+ables the agent to convert multimodal observations into ﬁne-grained 
+semantic representations. Beyond existing multimodal encoders, our 
+perception mechanism introduces token-level semantic decomposition 
+and a uniﬁed global–local routing architecture, which together gener-
+ate expressive representations tailored for knowledge-graph-centric rea-
+soning. To comprehensively understand its environment, the agent per-
+forms two complementary levels of attentional processing: global struc-
+tural perception and local neighborhood perception. These are imple-
+mented through a Fine-Grained Modality Tokenization process and a 
+Dual-Path Encoder, providing both semantic atomization and eﬀective 
+global–local integration. This design ensures that the subsequent mem-
+ory and reasoning modules are fed with high-quality, ﬁne-grained evi-
+dence.
+4.1.1.  Fine-grained modality tokenization
+To eﬀectively capture ﬁne-grained multimodal information, Percep-
+tion Module propose a Fine-grained Modality Tokenization module de-
+signed to convert the original multimodal data of entities into discrete 
+semantic tokens at a ﬁne-grained level. These tokens act as semantic 
+units, facilitating the learning of detailed and nuanced entity represen-
+tations.We employ the tokenizers for image and textual modality respec-
+tively, denoted as 𝑇img and 𝑇txt, to generate visual tokens 𝑣𝑒,𝑖 and textual 
+tokens 𝑡𝑒,𝑖 for entity 𝑒:
+𝑈img(𝑒) = {𝑣𝑒,1, 𝑣𝑒,2, … , 𝑣𝑒,𝑚𝑒} = 𝑇img(𝑉(𝑒))
+(1)
+𝑈txt(𝑒) = {𝑡𝑒,1, 𝑡𝑒,2, … , 𝑡𝑒,𝑛𝑒} = 𝑇txt(𝐶(𝑒))
+(2)
+where 𝑚𝑒, 𝑛𝑒 is the number of tokens for each modality, and we denote 
+𝑈(𝑒) as the collective token set for entity 𝑒. The text tokens are from the 
+vocabulary of a language model , while the visual tokens are from the 
+codebook of a pre-trained visual tokenizer. Notably, 𝑉(𝑒) might consist 
+of multiple images, and we process each image to accumulate the tokens 
+in 𝑈img(𝑒). This tokenization process decomposes multimodal content 
+into ﬁne-grained semantic units, providing the agent with a detailed 
+perceptual basis necessary for downstream context-sensitive reasoning 
+and memory formation.
+Expert Systems With Applications 318 (2026) 132001 
+3 
+
+K. Yang et al.
+Fig. 2. The overview of our MMKGC-Agent framework. We mainly have four parts of new designs in MMKGC-Agent to integrate multimodal perception, enhance 
+local memory, enable tool-augmented interaction, and perform adaptive reasoning.
+4.1.2.  Dual-path encoder module
+To capture both cross-modal interactions and topological dependen-
+cies, the agent processes these tokens through a dual-stage pipeline. 
+The multimodal tokens are ﬁrst projected and concatenated into a 
+transformer-ready sequence 𝑋′(𝑒), augmented with a learnable struc-
+tural token 𝑠𝑒 and a special classiﬁcation token [ENT]:
+𝑋′(𝑒) = ([ENT], 𝑠𝑒, ̂𝑣𝑒,1, … , ̂𝑣𝑒,𝑚, ̂𝑡𝑒,1, … , ̂𝑡𝑒,𝑛
+)
+(3)
+Here, ̂𝑣 and ̂𝑡 are projected features optimized via linear layers 𝑃img
+and 𝑃txt to align distributions. A standard Transformer encoder is then 
+applied to model global dependencies across all modalities:
+𝐞= Pooling(Transformer(𝑋′(𝑒)))
+(4)
+where 𝐞 captures the global semantic context of the entity.
+Instead of directly adopting this global representation as the entity 
+embedding, the agent reﬁnes it through a dynamic graph attention con-
+volutional layer to further capture local neighborhood interactions:
+𝐞′ = GAT(𝐞, edge_index)
+(5)
+where edge_index denotes the structural edges of the multimodal knowl-
+edge graph. GAT(⋅) dynamically adjusts attention weights among enti-
+ties according to their structural relationships, thereby performing adap-
+tive neighborhood aggregation.
+Distinct from conventional static methods that adopt the encoder 
+output 𝐞 as the ﬁnal representation, our framework utilizes the 
+neighborhood-reﬁned 𝐞′ merely as the initial static state. This state 
+serves as the foundational “raw material” for the subsequent Memory 
+Module to construct query-dependent dynamic representations.
+4.2.  Memory module: Short-term local residual memory enhancement
+This module represents the cognitive core of the MMKGC-Agent. 
+Upon acquiring the initial static state 𝐞′ from the perception module, 
+the agent transitions into the active memory construction phase. We 
+posit that a static embedding 𝐞′, no matter how reﬁned, struggles to ef-
+fectively capture the distinct semantic roles an entity may play across 
+diﬀerent contexts. Therefore, unlike traditional approaches that directly 
+utilize 𝐞 for inference, our agent generates a dynamic, query-speciﬁc 
+memory state ̃𝐡′′. This state is not a ﬁxed parameter but a transient 
+representation conditioned explicitly on the current query (ℎ, 𝑟, ?). By 
+leveraging the sensory input 𝐞′, the memory component selectively high-
+lights neighborhood-level semantics relevant to the relation 𝑟 while re-
+taining global context. The memory construction process is orchestrated 
+through three synergistic stages: Contextualized Local Memory Encod-
+ing, Learnable Residual Memory Interaction, and Relational Memory 
+Decoding.
+4.2.1.  Contextualized local memory encoder
+To initiate the memory construction process, the agent ﬁrst maps the 
+retrieved perceptual features into a query-speciﬁc latent space. This step 
+acts as a contextual trigger, activating relevant semantic signals while 
+suppressing irrelevant noise. For a speciﬁc query (ℎ, 𝑟, ?), the retrieval is 
+governed by a contextual token:
+̃𝐡= Transformer([CXT], 𝐡, 𝐫)
+(6)
+Here, 𝐡 is the entity embedding supplied by the perception backbone, 
+𝐫 is the relation embedding, and [CXT] serves as a specialized prompt 
+token to focus attention. Crucially, the resulting ̃𝐡 is no longer a generic 
+entity representation; it captures the initial memory state of the entity 
+speciﬁcally conditioned on the interaction with relation 𝑟, marking the 
+transition from passive perception to active memory formation.
+4.2.2.  Learnable residual memory pathway
+A single pass of contextual encoding is insuﬃcient to capture intri-
+cate structural dependencies. To address this, we introduce the LRMP, 
+the engine of the agent’s dynamic reasoning capability. Rather than 
+merely storing features, LRMP equips the agent with a constructive rea-
+soning mechanism. It explicitly models fundamental entity-relation in-
+teraction patterns—such as translation, composition, and correlation—
+to enrich the short-term memory.
+Concretely, LRMP performs a diversiﬁed set of explicit interactions 
+between the memory state ̃𝐡 and the relation 𝐫:
+𝐜= CrossInteractLayer(̃𝐡, 𝐫) = Dropout
+(
+Linear([̃𝐡; 𝐫;̃𝐡+ 𝐫;̃𝐡−𝐫;̃𝐡⊙𝐫]))
+(7)
+These operations are not arbitrary; they correspond to distinct logical 
+reasoning inductive biases. Speciﬁcally, ̃𝐡−𝐫 captures translational se-
+mantics, ̃𝐡⊙𝐫 captures multiplicative interactions, and ̃𝐡+ 𝐫 models ad-
+ditive composition. By fusing these distinct memory slices, the agent 
+Expert Systems With Applications 318 (2026) 132001 
+4 
+
+K. Yang et al.
+reconstructs a comprehensive view of the entity’s role in the current 
+triple.
+The agent then integrates these interactive features back into the 
+memory stream via a residual connection:
+̃𝐡′ = 𝐜+ ̃𝐡
+(8)
+followed by non-linear transformation and normalization:
+̃𝐡′′ = ReLU
+(
+LayerNorm(Linear(̃𝐡′)))
+(9)
+This pathway ensures that the local memory is not only retained but 
+continually intensiﬁed. Through this process, weak structural cues are 
+ampliﬁed into highly discriminative memory representations (̃𝐡′′) that 
+are robust against noise and missing modalities.
+4.2.3.  Relational memory decoder
+In the ﬁnal phase, the agent translates its constructed memory state 
+into explicit behavior. The Relational Memory Decoder serves as the 
+decision-making unit, computing the plausibility of candidate triples 
+based on the dynamic memory ̃𝐡′′:
+𝑆(ℎ, 𝑟, 𝑡) = ×1 ̃𝐡′′ ×2 𝐫×3 𝐭,
+(10)
+where ∈ℝ𝑑×𝑑×𝑑 is the learnable core tensor, and ×𝑛 denotes the 
+mode-𝑛 tensor product. It is vital to underscore that this score reﬂects dy-
+namic inference: unlike static models that match ﬁxed embeddings, the 
+agent evaluates candidates based on the ̃𝐡′′ it just actively constructed 
+for this speciﬁc query.
+During training, to endow the agent with bidirectional reasoning ca-
+pabilities, we model the conditional distributions 𝑝(𝑡∣ℎ, 𝑟) and 𝑝(ℎ∣𝑟, 𝑡). 
+We employ a cross-entropy objective over the entity set:
+head = −
+∑
+(ℎ,𝑟,𝑡)∈
+log
+exp 𝑆(ℎ, 𝑟, 𝑡)
+∑
+𝑡′∈exp 𝑆(ℎ, 𝑟, 𝑡′),
+(11)
+tail = −
+∑
+(ℎ,𝑟,𝑡)∈
+log
+exp 𝑆(ℎ, 𝑟, 𝑡)
+∑
+ℎ′∈exp 𝑆(ℎ′, 𝑟, 𝑡).
+(12)
+The global training objective is deﬁned as:
+MMKGC = head + tail,
+(13)
+ensuring the agent maintains consistent reasoning logic across diverse 
+completion scenarios.
+4.3.  Self-alignment module: Autonomous semantic calibration and 
+puriﬁcation
+While the Memory Module (Section 4.2) empowers the agent to 
+dynamically adapt its state to varying query contexts, this ﬂexibility 
+introduces a potential risk where entity representations might drift 
+or become over-specialized to speciﬁc relations. To counterbalance 
+this dynamic adaptation, we introduce the Learnable Semantic Self-
+Alignment mechanism as a parallel stabilization system. Its primary 
+function is to enforce intrinsic semantic coherence across the agent’s 
+internal states by acting as a semantic anchor that ensures the learned 
+representations remain discriminative and robust during dynamic rea-
+soning.
+To achieve this, the agent constructs a candidate set of complemen-
+tary semantic views for each entity 𝑒 through diﬀerent pooling and slic-
+ing operations on the multimodal token sequence. Speciﬁcally, we de-
+ﬁne four heterogeneous views to capture diverse semantic facets: (1) the 
+classiﬁcation token state 𝐞ent which aggregates holistic entity informa-
+tion, (2) the global mean representation 𝐞avg derived from all tokens, (3) 
+the visual-speciﬁc mean 𝐞vis which focuses on image features, and (4) 
+the textual-speciﬁc mean 𝐞txt which emphasizes descriptive content. To 
+further enforce robustness against structural perturbations, these views 
+are augmented with a learnable latent token. Collectively, these views 
+form the alignment set:
+(𝑒) = {𝐞ent, 𝐞avg, 𝐞vis, 𝐞txt
+}
+(14)
+where each view captures a unique ﬁne-grained nuance of the entity.
+The goal of LSSA is to ensure these diverse views remain consis-
+tent while minimizing informational redundancy. Unlike traditional 
+contrastive paradigms that rely on negative sampling, LSSA adopts a 
+redundancy-reduction strategy inspired by the Barlow Twins objective. 
+This approach focuses solely on the cross-correlation matrix of the inter-
+nal representations to ensure that alignment is achieved through intrin-
+sic coherence rather than external opposition. The semantic-alignment 
+objective for a pair of views (𝑒, 𝑒′) is formulated as:
+Semantic(𝑒, 𝑒′) =
+𝐷
+∑
+𝑖=1
+(1 −𝑐𝑖,𝑖)2 + 𝜆
+∑
+𝑖≠𝑗
+𝑐2
+𝑖,𝑗
+(15)
+where 𝑐𝑖,𝑗 measures the cross-correlation between the 𝑖th and 𝑗th dimen-
+sions of the embeddings from views 𝑒 and 𝑒′, while 𝜆 regulates the trade-
+oﬀ between the invariance term and the redundancy-reduction term. 
+The invariance term forces diagonal elements to 1 to ensure that diverse 
+views point to the same underlying concept, while the redundancy-
+reduction term drives oﬀ-diagonal elements to 0 to disentangle the se-
+mantic axes.
+By minimizing this objective across all pairs in (𝑒), the agent 
+achieves concurrent semantic puriﬁcation:
+LSSA =
+1
+|(𝑒)|
+∑
+𝑒′∈(𝑒)
+Semantic(𝑒, 𝑒′)
+(16)
+In practice, the LSSA module is integrated into the framework as an 
+auxiliary loss term that is optimized jointly with the primary reasoning 
+objective. To maintain computational eﬃciency, the agent employs a 
+stochastic sub-sampling strategy where a subset of entities is randomly 
+selected in each batch to compute the alignment loss. This simultaneous 
+optimization ensures that the Memory Module explores query-speciﬁc 
+local interactions while the Self-Alignment Module preserves the purity 
+of the underlying entity semantics. This synergistic design signiﬁcantly 
+enhances the overall robustness of the framework against multimodal 
+noise and representation drift.
+4.4.  Reasoning & action module: From cognitive states to explicit behaviour
+Following perception, semantic calibration, and memory construc-
+tion, the agent enters the ﬁnal Reasoning & Action phase. This module 
+does not operate in isolation; rather, it serves as the actuation interface 
+that translates the agent’s internal cognitive states (̃𝐡′′) into explicit in-
+teractions with the external environment.
+For a given query (ℎ, 𝑟, ?) or (?, 𝑟, 𝑡), the agent leverages its dynami-
+cally constructed short-term memory ̃𝐡′′—rather than the static retrieval 
+used in conventional models—to execute the inference policy. The scor-
+ing function, realized via the Relational Memory Decoder (Section 4.2), 
+acts as the reasoning engine: 
+̂ℎ= arg max
+ℎ′∈𝑆(ℎ′, 𝑟, 𝑡),
+̂𝑡= arg max
+𝑡′∈𝑆(ℎ, 𝑟, 𝑡′)
+(17)
+where 𝑆(⋅) quantiﬁes the compatibility between the current memory 
+state and candidate entities. This procedure embodies adaptive cogni-
+tion: the agent’s decision is not based on a ﬁxed entity feature, but on a 
+transient state speciﬁcally synthesized to answer the current query.
+To ensure the agent develops both external adaptability and internal 
+coherence, the framework is optimized via a composite objective:
+= MMKGC + 𝜇LSSA
+(18)
+Here, MMKGC drives the agent to maximize prediction accuracy, while 
+LSSA acts as an intrinsic regularizer, ensuring that the representations 
+used for memory construction remain semantically distinct and robust 
+against semantic drift.
+In summary, the MMKGC-Agent is not a mere stack of deep learning 
+layers, but a functional system operating under a four-stage cognitive 
+cycle. Each stage is strictly interdependent, forming a uniﬁed paradigm 
+for dynamic reasoning:
+Expert Systems With Applications 318 (2026) 132001 
+5 
+
+K. Yang et al.
+• Perception Module: 𝑜𝑡→𝐞′. The hybrid backbone extracts raw 
+structural and multimodal signals, serving as the static foundation.
+• Memory Module: 𝐞′, 𝑟→̃𝐞′′. The LRMP dynamically transforms the 
+static input into a query-dependent memory state ̃𝐞′′, adapting the 
+internal representation to the speciﬁc relation context.
+• Self-Alignment Module: 𝐞′ →Stabilized 𝐞′. Simultaneously, the 
+LSSA mechanism enforces intrinsic representational coherence to 
+counterbalance dynamic adaptation, acting as a semantic anchor to 
+prevent contextual overﬁtting.
+• Reasoning & Action Module: ̃𝐞′′ →𝑎𝑡. The agent executes the link 
+prediction action 𝑎𝑡 based on the local memory state, completing the 
+cognitive loop.
+This closed-loop design ensures that the agent moves beyond tradi-
+tional feature fusion, achieving a system where perception serves mem-
+ory, calibration stabilizes memory, and action manifests memory.
+4.5.  Formalizing the cognitive advantages of closed-loop architecture
+To strengthen the conceptual rigor of our agent-based formulation, 
+we formalize why the MMKGC-Agent yields cognitive advantages and 
+supports transfer across heterogeneous reasoning scenarios. We model 
+the MMKGC-Agent as a discrete-time, partially observable dynamical 
+system with an internal memory update operator. At time step 𝑡, the 
+agent observes multimodal input 𝑜𝑡 (derived from images, text, and 
+graph neighborhoods), maintains internal short-term memory 𝑚𝑡∈ℝ𝑑, 
+and produces action 𝑎𝑡 (prediction or scoring decision). The closed-loop 
+update is written compactly as: 
+𝑚𝑡+1 = Φ(𝑚𝑡, 𝑜𝑡, 𝑎𝑡), 𝑎𝑡
+∼𝜋(⋅∣𝑚𝑡, 𝑜𝑡),
+(19)
+where Φ denotes the memory update operator implemented by the 
+LRMP (including residual connections, normalization, and nonlineari-
+ties), and 𝜋 denotes the reasoning policy implemented by the Relational 
+Memory Decoder. The alignment module (LSSA) introduces a semantic 
+projection Ψ that regularizes internal feature dimensions; we will make 
+its eﬀect explicit in what follows.
+Assume the memory operator Φ(⋅, 𝑜, 𝑎) is locally Lipschitz continu-
+ous with respect to its memory argument. In our architecture, the inte-
+gration of residual connections, layer normalization, and bounded non-
+linearities (such as ReLU) eﬀectively enforces a bounded gain property. 
+Speciﬁcally, we consider typical observation sets  and policy-generated 
+actions 𝑎, such that there exists a contraction constant 0 ≤𝜆< 1. Under 
+this condition, for any memory states 𝑚1 and 𝑚2, the operator satisﬁes:
+‖Φ(𝑚1, 𝑜, 𝑎) −Φ(𝑚2, 𝑜, 𝑎)‖ ≤𝜆‖𝑚1 −𝑚2‖.
+(20)
+By the Banach ﬁxed-point theorem, this property implies geometric 
+convergence to a unique, query-dependent ﬁxed point 𝑚⋆(𝑜, 𝑎). Starting 
+from any initial state 𝑚0, the iterative update 𝑚𝑡+1 = Φ(𝑚𝑡, 𝑜, 𝑎) converges 
+as:
+‖𝑚𝑡−𝑚⋆‖ ≤𝜆𝑡‖𝑚0 −𝑚⋆‖.
+(21)
+This formalization conﬁrms the intuition that when LRMP is de-
+signed with bounded gain, it concentrates memory updates and pre-
+vents divergent oscillations. Crucially, since 𝑚⋆ is explicitly conditioned 
+on the observation 𝑜 and action 𝑎 through the query (ℎ, 𝑟, ?), the agent 
+achieves query-sensitive semantics while maintaining structural stabil-
+ity.
+We next characterize robustness against perturbations (observation 
+noise, missing modalities, or stochastic optimization noise). Model the 
+memory update with additive perturbation:
+𝑚𝑡+1 = Φ(𝑚𝑡, 𝑜𝑡, 𝑎𝑡) + 𝜂𝑡,
+(22)
+where 𝜂𝑡 is a bounded perturbation (‖𝜂𝑡‖ ≤𝜖). Then:
+With contraction constant 𝜆< 1 and bounded perturbation 
+sup𝑡‖𝜂𝑡‖ ≤𝜖, the memory error relative to the nominal ﬁxed point is 
+uniformly bounded:
+‖𝑚𝑡−𝑚⋆‖ ≤𝜆𝑡‖𝑚0 −𝑚⋆‖ +
+1
+1 −𝜆𝜖.
+(23)
+The ﬁrst term shows geometric forgetting of initial conditions; the 
+second term shows that perturbations are not ampliﬁed unboundedly, 
+but contribute only (
+𝜖
+1−𝜆) steady-state error. Thus, contraction (small 
+𝜆) reduces sensitivity to noisy inputs and missing modalities. In practice, 
+LRMP’s residual + normalization layers help keep 𝜆 in the < 1 regime, 
+thereby guaranteeing the noise-suppressing capability of memory tra-
+jectories.
+We now connect memory convergence to the reliability of the scoring 
+function used for link prediction. Assume the relational memory decoder 
+𝑆(⋅, 𝑟, 𝑡) (for scoring candidate entities) is 𝐿𝑆-Lipschitz in its memory 
+argument:
+|𝑆(𝑚1, 𝑟, 𝑡) −𝑆(𝑚2, 𝑟, 𝑡)| ≤𝐿𝑆‖𝑚1 −𝑚2‖.
+(24)
+Combining with previous results, we obtain a quantitative bound on 
+scoring errors due to incomplete convergence or noise:
+|𝑆(𝑚𝑡, 𝑟, 𝑡) −𝑆(𝑚⋆, 𝑟, 𝑡)| ≤𝐿𝑆
+(
+𝜆𝑡‖𝑚0 −𝑚⋆‖ +
+𝜖
+1 −𝜆
+)
+.
+(25)
+Thus, contraction improves both the speed at which scores approach 
+their steady-state values and limits the steady-state scoring error in-
+duced by perturbations.
+Finally, we formalize how Learnable Semantic Self-Alignment (LSSA) 
+acts as a stabilizing regularizer that reduces representation drift and 
+conditions the decoder. Let 𝐶 denote the empirical covariance matrix of 
+memory representations used by the decoder across views; LSSA mini-
+mizes a redundancy reduction penalty of the form:
+LSSA ∝
+∑
+𝑖≠𝑗
+𝑐2
+𝑖𝑗+
+∑
+𝑖
+(1 −𝑐𝑖𝑖)2,
+(26)
+which drives 𝐶 toward an (approximately) diagonal matrix with unit 
+variance. This yields two important consequences.
+First, by reducing oﬀ-diagonal covariances, LSSA decreases multi-
+collinearity among feature axes. For linear or locally linear decoders, 
+the condition number of the design matrix is improved; speciﬁcally, the 
+condition number 𝜅(𝐶) is reduced, which tightens standard least-squares 
+generalization bounds and improves numerical stability of parameter 
+updates. Second, decorrelated feature axes limit the sensitivity of down-
+stream mappings: if the decoder’s operator norm depends on the maxi-
+mum eigenvalue 𝜆max(𝐶), then LSSA (by controlling cross-correlations) 
+prevents pathological growth of 𝜆max, thereby helping keep the decoder 
+Lipschitz constant 𝐿𝑆 moderate.
+We can make these relationships explicit in a simpliﬁed linearized 
+setting. Consider the linearized decoder 𝑆(𝑚) = 𝑤⊤𝑚, and let ̃𝐶= 𝔼[(𝑚−
+𝑚⋆)(𝑚−𝑚⋆)⊤] denote the empirical covariance of noisy memory esti-
+mates. Under a small-noise Gaussian approximation, the variance of 
+score 𝑆(𝑚) is 𝑤⊤̃𝐶𝑤. Minimizing oﬀ-diagonal terms of ̃𝐶 reduces this 
+variance for any ﬁxed 𝑤, thereby improving robustness of ranking scores 
+under perturbations. More generally, LSSA reduces the eﬀective degrees 
+of freedom that the decoder must manage to distinguish entities, which 
+decreases sample complexity constants in the decoder’s statistical learn-
+ing bounds.
+The above formalization translates qualitative intuitions into quan-
+titative statements: under benign but realistic architectural constraints, 
+the closed-loop MMKGC-Agent possesses query-dependent ﬁxed points, 
+converges to them geometrically, propagates input perturbations in a 
+controlled (non-amplifying) manner, and beneﬁts from an alignment 
+penalty that reduces variance and conditions downstream inference. Al-
+though we do not claim tight ﬁnite-sample generalization bounds for 
+the full nonlinear system, these results provide principled theoretical 
+support for the empirical gains observed in Section 5, and demonstrate 
+why closed-loop cognitive cycles can reliably improve robustness and 
+transfer in multimodal knowledge completion tasks.
+5.  Experiments
+In this section, we present comprehensive experiments to validate 
+the eﬀectiveness of the proposed MMKGC-Agent with Local Memory 
+Expert Systems With Applications 318 (2026) 132001 
+6 
+
+K. Yang et al.
+Table 1 
+Statistical information of the datasets.
+ Dataset
+||
+||
+ #Train
+ #Valid
+ #Test
+||
+||
+ DB15K
+ 12,842
+ 279
+ 79,222
+ 9902
+ 9904
+ 12,818
+ 12,842
+ MKG-W
+ 15,000
+ 169
+ 34,196
+ 4276
+ 4274
+ 14,463
+ 14,123
+ MKG-Y
+ 15,000
+ 28
+ 21,110
+ 2665
+ 2665
+ 14,244
+ 12,826
+ KVC16K
+ 16,015
+ 4
+ 180,190
+ 22,523
+ 22,252
+ 14,822
+ 14,822
+Enhancement. Rather than simply reporting performance scores, the ex-
+periments are framed as controlled evaluations of the agent’s cognitive 
+abilities—its capacity to perceive, enhance local memory, self-align, and 
+reason within heterogeneous multimodal environments. The study is or-
+ganized around the following research questions (RQs), which reﬂect 
+both global–local structural reasoning and ﬁne-grained semantic align-
+ment:
+• RQ1: Can the agent, through its uniﬁed cognitive framework, out-
+perform existing baseline methods in multimodal KG completion?
+• RQ2: How essential is each cognitive component (perception, mem-
+ory, self-supervision, reasoning) for sustaining the agent’s capabili-
+ties?
+• RQ3: To what extent does global–local dual-path perception improve 
+the robustness of structural understanding?
+• RQ4: How do memory-enhanced residual interactions contribute to 
+adaptive entity representation under sparse structures?
+• RQ5: Does self-supervised alignment via contrastive learning en-
+hance the semantic purity of multimodal embeddings?
+• RQ6: How sensitive is the agent’s behavior to hyper-parameter vari-
+ations, and what does this imply for adaptability?
+• RQ7: Compared to static models, how does the agent balance cogni-
+tive eﬀectiveness with computational eﬃciency?
+• RQ8: How well can the agent generalize to multimodal link predic-
+tion tasks beyond unimodal or single-view scenarios, leveraging its 
+memory-enhanced reasoning?
+5.1.  Experiment settings
+5.1.1.  Datasets
+We regard benchmark datasets as external environments that the 
+agent needs to sense and interact with. Four multimodal knowledge 
+graph completion benchmarks are adopted: DB15K (Chen et al., 2020a), 
+MKG-W (Zhang et al., 2025), MKG-Y and KVC16K (Zhang et al., 2024a). 
+DB15K is derived from DBpedia, while MKG-W and MKG-Y are sub-
+sets of Wikidata and YAGO, respectively, both providing structured 
+triples enriched with textual descriptions and entity-associated im-
+ages, thereby simulating environments with heterogeneous multimodal 
+cues. KVC16K is a large-scale multimodal knowledge graph focusing on 
+visual–conceptual associations, containing a small number of relations 
+but a high proportion of multimodal entities, which allows for evalu-
+ating the agent’s performance in low-relational yet visually grounded 
+scenarios. These datasets diﬀer in scale, density, and modality balance, 
+enabling us to comprehensively examine the agent’s adaptability un-
+der both sparse and richly multimodal conditions. Detailed statistics are 
+shown in Table 1, where || and || denote the numbers of entities 
+and relations, respectively, while || and || represent the coverage of 
+visual and textual descriptions.
+5.1.2.  Task and evaluation protocols
+The evaluation focuses on the link prediction task, which directly 
+tests whether the agent can complete missing information in multimodal 
+environments. Given an incomplete triple (ℎ, 𝑟, ?) or (?, 𝑟, 𝑡), the agent 
+must infer the most plausible entity.
+Following standard practice, we employ Mean Reciprocal Rank 
+(MRR) and Hit@K (𝐾= 1, 3, 10) as evaluation metrics. These metrics 
+capture not only the correctness but also the ranking quality of the 
+agent’s predictions. To ensure fair comparison, the ﬁltered setting is ap-
+plied, where candidate triples already seen in training are removed. 
+The ﬁnal scores are averaged over both head and tail prediction.
+Formally:
+MRR =
+1
+||
+||
+∑
+𝑖=1
+(
+1
+𝑝ℎ,𝑖
++ 1
+𝑝𝑡,𝑖
+)
+(27)
+Hit@K =
+1
+||
+||
+∑
+𝑖=1
+(
+𝕀(𝑝ℎ,𝑖≤𝐾) + 𝕀(𝑝𝑡,𝑖≤𝐾)
+)
+(28)
+where 𝑝ℎ,𝑖 and 𝑝𝑡,𝑖 are the results of head prediction and tail prediction, 
+and  is the triple set.
+5.1.3.  Baseline methods
+To position the agent’s performance in context, we compare it with 
+25 state-of-the-art methods, categorized as follows:
+(1). Uni-modal KGC methods: TransE, DistMult, ComplEx, RotatE, 
+PairRE, GC-OTE, and Tucker.These conventional methods only consider 
+the structure information in their model design.
+(2). MMKGC methods: IKRL, TBKGC, TransAE,MMKRL, RSME, 
+VBKGC, OTKGE, IMF, QEB, VISTA, AdaMF, AdaMF-MAT, APKGC, 
+AMIT, and DSGNN. These methods consider image and textual infor-
+mation in the MMKGC models and achieve multimodal fusion with dif-
+ferent settings.
+(3). Negative sampling methods: MANS, and MMRNS. These meth-
+ods utilize the multi-modal information in the MMKGs to generate high-
+quality negative samples for training.
+(4). Fine-Grained methods: MyGO. This method tokenizes the 
+modality data into ﬁne-grained multi-modal tokens and pioneers a novel 
+MMKGC architecture to hierarchically model the cross-modal entity rep-
+resentation.
+Although this work is philosophically inspired by recent advances in 
+general-purpose AI agents, such as DS-Agent (Guo et al., 2024), COPPER 
+(Bo et al., 2024), and AutoMLAgent (Trirat et al., 2025), it is important 
+to emphasize that these frameworks are primarily designed for high-
+level reasoning tasks, including automated planning, decision-making, 
+or code generation based on large language model (LLM) APIs. Their 
+observation spaces and action mechanisms are tightly coupled with 
+linguistic or programming environments, and thus lack the structural 
+constraint modeling capabilities as well as multimodal semantic align-
+ment and fusion mechanisms that are essential for large-scale knowl-
+edge graph completion. As a result, there exists a fundamental mismatch 
+in terms of task objectives, data modalities, and model inductive bi-
+ases, rendering direct empirical comparisons with such general-purpose 
+agents methodologically inappropriate.
+In contrast to conventional knowledge graph completion models, the 
+goal of this work is not to directly adopt or replicate existing general-
+purpose agent frameworks. Instead, we are the ﬁrst to systematically 
+introduce the agent paradigm into the domain of multimodal knowledge 
+graph completion (MMKGC), where autonomous decision-making and 
+multimodal perception are leveraged to enable dynamic and adaptive 
+optimization of the completion process. In line with this objective, we 
+evaluate the proposed MMKGC-Agent against state-of-the-art structural 
+baselines and multimodal baselines that are speciﬁcally designed and 
+optimized for knowledge graph completion, in order to provide a fair 
+and eﬀective assessment of its advantages.
+Some other approaches, such as KG-BERT that ﬁne-tunes large-scale 
+pretrained language models, are orthogonal to our design and thus omit-
+ted.
+5.1.4.  Implementation details
+The proposed MMKGC-Agent is implemented in PyTorch, with its 
+training pipeline designed to simulate adaptive cognitive interactions. 
+For multimodal perception, we tokenize textual and visual inputs fol-
+lowing the ﬁne-grained strategy of MyGO, thereby transforming raw 
+Expert Systems With Applications 318 (2026) 132001 
+7 
+
+K. Yang et al.
+Table 2 
+The main MMKGC results on DB15K, MKG-W, MKG-Y and KVC16K datasets. We list the type of method category (Uni-modal/Multi-modal/Negative Sampling/Agent-
+based) considered by each method in the table. The best results are marked as bold and the second-best results are underlined. The percentages in the last row 
+indicate the relative improvement over the best baseline method ( Ours−Baseline
+Baseline
+).
+Model
+Method Category
+ DB15K
+ MKG-W
+ MKG-Y
+ KVC16K
+ MRR
+ Hit@1  Hit@3  Hit@10  MRR
+ Hit@1  Hit@3  Hit@10  MRR
+ Hit@1  Hit@3  Hit@10  MRR
+ Hit@1  Hit@3  Hit@10
+ TransE
+ Uni-modal
+ 24.86
+ 12.78
+ 31.48
+ 47.07
+ 29.19
+ 21.06
+ 33.20
+ 44.23
+ 30.73
+ 23.45
+ 35.18
+ 43.37
+ 8.54
+ 0.64
+ 10.33
+ 23.42
+ DistMult
+ Uni-modal
+ 23.03
+ 14.78
+ 26.28
+ 39.59
+ 20.99
+ 15.93
+ 22.28
+ 30.86
+ 25.04
+ 19.33
+ 27.80
+ 35.95
+ 6.37
+ 3.03
+ 6.55
+ 12.61
+ ComplEx
+ Uni-modal
+ 27.48
+ 18.37
+ 31.57
+ 45.37
+ 24.93
+ 19.09
+ 26.69
+ 36.73
+ 28.71
+ 22.26
+ 32.12
+ 40.93
+ 12.85
+ 7.48
+ 12.37
+ 23.18
+ RotatE
+ Uni-modal
+ 29.28
+ 17.87
+ 36.12
+ 49.66
+ 33.67
+ 26.80
+ 36.68
+ 46.73
+ 34.95
+ 29.10
+ 38.35
+ 45.30
+ 14.33
+ 8.25
+ 15.97
+ 26.17
+ PairRE
+ Uni-modal
+ 31.13
+ 21.62
+ 35.91
+ 49.30
+ 34.40
+ 28.24
+ 36.71
+ 46.04
+ 32.01
+ 25.53
+ 35.83
+ 43.89
+ 12.17
+ 6.05
+ 13.30
+ 24.19
+ GC-OTE
+ Uni-modal
+ 31.85
+ 22.11
+ 36.52
+ 51.18
+ 33.92
+ 26.55
+ 35.96
+ 46.05
+ 32.95
+ 26.77
+ 36.44
+ 44.08
+ 13.09
+ 7.52
+ 14.47
+ 25.83
+ TuckER
+ Uni-modal
+ 33.86
+ 25.33
+ 37.91
+ 50.38
+ 30.39
+ 24.44
+ 32.91
+ 41.25
+ 29.12
+ 23.50
+ 34.15
+ 40.78
+ 9.87
+ 5.68
+ 12.45
+ 21.12
+ IKRL
+ Multi-modal
+ 26.82
+ 14.09
+ 34.93
+ 49.09
+ 32.36
+ 26.11
+ 34.75
+ 44.07
+ 33.22
+ 30.37
+ 34.28
+ 38.26
+ 11.11
+ 5.42
+ 12.45
+ 22.39
+ TBKGC
+ Multi-modal
+ 28.40
+ 15.61
+ 37.03
+ 49.86
+ 31.48
+ 25.31
+ 33.98
+ 43.24
+ 33.99
+ 30.47
+ 35.27
+ 40.07
+ 5.39
+ 0.35
+ 6.94
+ 15.52
+ TransAE
+ Multi-modal
+ 28.09
+ 21.25
+ 31.17
+ 41.17
+ 30.00
+ 21.23
+ 34.91
+ 44.72
+ 28.10
+ 25.31
+ 29.10
+ 33.03
+ 10.81
+ 5.31
+ 11.13
+ 21.89
+ MMKRL
+ Multi-modal
+ 26.81
+ 13.85
+ 35.07
+ 49.39
+ 30.10
+ 22.16
+ 34.09
+ 44.69
+ 36.81
+ 31.66
+ 39.79
+ 45.31
+ 8.78
+ 3.89
+ 8.91
+ 18.34
+ RSME
+ Multi-modal
+ 29.76
+ 24.15
+ 32.12
+ 40.29
+ 29.23
+ 23.36
+ 31.97
+ 40.43
+ 34.44
+ 31.78
+ 36.07
+ 39.09
+ 12.31
+ 7.14
+ 14.24
+ 22.05
+ VBKGC
+ Multi-modal
+ 30.61
+ 19.75
+ 37.18
+ 49.44
+ 30.61
+ 24.91
+ 33.01
+ 40.88
+ 37.04
+ 33.76
+ 38.75
+ 42.30
+ 14.66
+ 8.28
+ 17.38
+ 27.04
+ OTKGE
+ Multi-modal
+ 23.86
+ 18.45
+ 25.89
+ 34.23
+ 34.36
+ 28.85
+ 36.25
+ 44.88
+ 34.36
+ 28.85
+ 36.25
+ 44.88
+ 8.77
+ 5.01
+ 8.54
+ 15.55
+ IMF
+ Multi-modal
+ 32.25
+ 24.2
+ 36.00
+ 48.19
+ 34.50
+ 28.77
+ 36.62
+ 45.44
+ 35.79
+ 32.95
+ 37.14
+ 40.63
+ 12.01
+ 7.42
+ 12.49
+ 21.01
+ QEB
+ Multi-modal
+ 28.18
+ 14.82
+ 36.67
+ 51.55
+ 32.38
+ 25.47
+ 35.06
+ 45.32
+ 34.37
+ 29.49
+ 36.95
+ 42.32
+ 12.06
+ 5.57
+ 14.48
+ 25.01
+ VISTA
+ Multi-modal
+ 30.42
+ 22.49
+ 33.56
+ 45.94
+ 32.91
+ 26.12
+ 35.38
+ 45.61
+ 30.45
+ 24.87
+ 32.39
+ 41.53
+ 11.89
+ 6.97
+ 12.87
+ 21.27
+ AdaMF
+ Multi-modal
+ 32.51
+ 21.31
+ 39.67
+ 51.59
+ 34.27
+ 27.21
+ 37.86
+ 47.21
+ 38.06
+ 33.49
+ 40.44
+ 45.48
+ 14.12
+ 7.05
+ 13.35
+ 26.66
+ AdaMF-MAT
+ Multi-modal
+ 34.88
+ 25.07
+ 40.77
+ 51.63
+ 35.38
+ 28.88
+ 38.18
+ 47.65
+38.57
+ 34.34
+40.59
+45.76
+ 15.22
+ 9.64
+ 18.05
+28.88
+ APKGC
+ Multi-modal
+ 35.88
+ 27.73
+ 40.81
+52.01
+ 35.56
+ 29.01
+38.20
+48.56
+ 36.12
+ 28.76
+ 37.15
+ 44.66
+ 15.82
+9.86
+ 17.99
+ 28.71
+ AMIT
+ Multi-modal
+ 36.17
+ 28.12
+ 40.05
+ 51.04
+ 35.51
+ 29.22
+ 37.88
+ 46.65
+ 35.78
+ 29.16
+ 38.88
+ 44.74
+ 13.24
+ 8.92
+ 16.48
+ 28.44
+ DSGNN
+ Multi-modal
+ 35.72
+ 29.07
+ 39.32
+ 50.98
+ 35.41
+ 28.31
+ 37.83
+ 47.23
+ 35.53
+ 27.21
+ 37.84
+ 45.12
+ 13.75
+ 8.49
+ 17.54
+ 28.76
+ MANS
+ Negative Sampling  28.82
+ 16.87
+ 36.58
+ 49.26
+ 30.88
+ 24.89
+ 33.63
+ 41.78
+ 29.03
+ 25.25
+ 31.35
+ 34.49
+ 10.42
+ 5.21
+ 12.15
+ 20.45
+ MMRNS
+ Negative Sampling  32.68
+ 23.01
+ 37.86
+ 51.01
+ 35.03
+ 28.59
+ 37.49
+ 47.47
+ 35.93
+ 30.53
+ 39.07
+ 45.47
+ 13.31
+ 7.51
+ 14.46
+ 24.68
+ MyGO
+ Fine-Grained
+37.20
+29.61
+40.84
+ 51.65
+35.74
+29.34
+ 38.10
+ 47.51
+ 38.44
+35.01
+ 39.84
+ 44.19
+15.84
+ 9.78
+18.05
+ 28.67
+MMKGC-Agent Agent-based
+ 38.32
+ 30.38
+ 42.44
+ 53.25
+ 37.16
+ 30.95
+ 39.83
+ 48.84
+ 39.43
+ 37.05
+ 41.56
+ 45.88
+ 16.67
+ 10.34
+ 18.85
+ 29.52
+ +3.0%  +2.6%  +3.9%  +2.4%  +4.0%  +5.5%  +4.3%  +0.6%  +2.2%  +5.8%  +2.4%  +0.2%  +5.2%  +4.9%  +4.4%  +2.2%
+environmental cues into semantic atoms. For structural perception, 
+the agent employs a Transformer encoder to capture global depen-
+dencies, followed by a GATv2-based neighbourhood aggregator to re-
+ﬁne local interactions. Training is conducted for 1800 epochs with 
+a batch size of 1024 and an embedding dimension of 256, reﬂect-
+ing the balance between cognitive capacity and computational eﬃ-
+ciency. The contrastive self-alignment weight 𝜇 is tuned via a grid 
+search from the set 1000, 100, 10, 1, which regulates the strength of self-
+supervision in intrinsic stabilization constraint. Optimisation is carried 
+out using Adam, with the learning rate selected from exp(−4), 2 exp(−4), 
+…, exp(−3), ensuring stable convergence of the agent’s cognitive loop. 
+For baseline models, we either adopt their oﬃcial implementations or 
+re-implement them using the OpenKE framework, ensuring consistency 
+in environmental conditions. All experiments are conducted on a Linux 
+server equipped with an NVIDIA A100 GPU; training and evaluation 
+across datasets typically take 3–5 hours. This setup guarantees that ob-
+served diﬀerences stem from cognitive design rather than computational
+artefacts.
+5.2.  Main results (RQ1)
+The primary results for the MMKGC-Agent are presented in Table 2, 
+which benchmarks its performance against 25 representative methods 
+across four multimodal knowledge-graph completion datasets including 
+DB15K, MKG-W, MKG-Y, and KVC16K.
+First, the MMKGC-Agent demonstrates consistent performance gains 
+across all ranking metrics on all four datasets. On DB15K, our model 
+attains an 𝑀𝑅𝑅 of 38.32, representing an absolute increase of 1.12 
+over the best non-agent baseline, which translates to a +3.0% rela-
+tive improvement. Similarly, we observe relative 𝑀𝑅𝑅 improvements 
+of +3.8%, +2.2%, and +5.2% on MKG-W, MKG-Y, and KVC16K, re-
+spectively. Notably, these improvements extend beyond averaged met-
+rics. The most signiﬁcant relative gains are typically observed in 𝐻𝑖𝑡@1
+and 𝐻𝑖𝑡@3. This pattern indicates that the MMKGC-Agent positions the 
+ground-truth entity at the top of the ranking more frequently. For in-
+stance, the +5.8% increase in 𝐻𝑖𝑡@1 on MKG-Y underscores a signiﬁ-
+cant boost in top-1 precision, which is critical for practical retrieval and 
+downstream decision-making tasks.
+We attribute these gains to the synergistic interplay within the 
+closed-loop architecture. Unlike methods that rely on static embed-
+dings or single-pass fusion, our agent utilizes the functional interdepen-
+dency between the LRMP and the self-alignment mechanism. The LRMP 
+provides the necessary representational plasticity to capture query-
+dependent cues that are often lost in static models. When a query 
+necessitates attending to speciﬁc visual attributes or local neighbor-
+hoods, the memory module synthesizes a transient state that is simul-
+taneously stabilized by the self-alignment anchor. This ensures that 
+the agent ampliﬁes relevant signals without introducing noise. Con-
+sequently, improvements are more pronounced in 𝐻𝑖𝑡@1 and 𝑀𝑅𝑅
+than in broader metrics like 𝐻𝑖𝑡@10, reﬂecting the agent’s capacity to 
+produce high-conﬁdence, precise predictions through deeper cognitive
+deliberation.
+Performance variations across datasets further validate the eﬀec-
+tiveness of this non-trivial architectural integration. Speciﬁcally, the 
+agent achieves its most substantial gains on KVC16K and MKG-W, 
+which are datasets characterized by rich yet potentially noisy multi-
+modal signals. This advantage conﬁrms that the self-alignment mod-
+ule does not function as a mere post-processing step but as an intrin-
+sic regularizer that enables the memory module to operate eﬀectively 
+in “noisy” environments. In the case of MKG-Y, where diﬀerentiating 
+ﬁne-grained semantic roles is the dominant challenge, the distinct im-
+provement in 𝐻𝑖𝑡@1 suggests that the agent’s dynamic state construc-
+tion successfully resolves the semantic ambiguity that often limits static 
+baselines. Furthermore, even on DB15K, the agent maintains its lead-
+Expert Systems With Applications 318 (2026) 132001 
+8 
+
+K. Yang et al.
+Fig. 3. The ablation study results on DB15K under diﬀerent scenarios.
+ership position, demonstrating that the uniﬁed design enhances overall 
+robustness without sacriﬁcing the ability to leverage basic structural
+cues.
+In conclusion, the numerical improvements demonstrate that the 
+closed-loop cognitive cycle is more than a modular collection of deep 
+learning layers. By integrating perception, dynamic memory construc-
+tion, and semantic stabilization into a mutually-reinforcing system, the 
+agent systematically improves decision conﬁdence and robustness under 
+partial multimodal observations. This validates the proposed paradigm 
+shift from static component stacking to an adaptive, integrated agentic 
+framework.
+5.3.  Ablation study (RQ2)
+To directly address whether the performance gain stems from the 
+closed-loop architecture or merely from the choice of components, we 
+compared the full MMKGC-Agent against a Sequential-Stack baseline. 
+This baseline employs the identical underlying components, namely 
+Transformer layers, GATv2, and the Barlow Twins objective, yet inte-
+grates them through a traditional linear feed-forward concatenation in 
+lieu of our proposed closed-loop memory interaction.
+As shown in Table 3, the Sequential-Stack baseline consistently 
+achieves the lowest performance across all four datasets. For instance, 
+on DB15K, the 𝑀𝑅𝑅 of the sequential baseline is 1.80% lower than that 
+of the full agentic framework. This disparity provides empirical evidence 
+that simply stacking high-performance encoders is insuﬃcient for com-
+plex multimodal reasoning. The superior performance of the Full Model 
+proves that the functional coupling between the LRMP and the stabiliza-
+tion mechanism is what drives the agent’s ability to synthesize precise, 
+query-dependent representations.
+Further ablation experiments involving the systematic removal of 
+individual modules demonstrate that all components are indispensable 
+for achieving peak performance. The results are summarized in Table 3 
+and Fig. 3. Across all four datasets, the elimination of any single mod-
+ule resulted in substantial performance degradation, corroborating the 
+criticality of the synergistic Perception → Memory → Self-Alignment →
+Reasoning pipeline. These ﬁndings quantitatively substantiate the sig-
+niﬁcance of the agent’s closed-loop architectural design.
+The second set of experiments investigates the impact of the self-
+alignment weight 𝜇. Adjusting 𝜇 across {1, 10, 100, 1000}, we observed 
+optimal performance at 𝜇= 1000 for DB15K and 𝜇= 100 for MKG-W. For 
+the MKG-Y dataset, a smaller 𝜇= 10 was found to be optimal, reﬂecting 
+its relatively sparse entity relations and limited multimodal informa-
+tion; a lower LSSA weighting suﬃces for semantic puriﬁcation without 
+over-regularizing global reasoning. In contrast, KVC16K, which contains 
+dense entity relations and rich multimodal features, beneﬁts from a high 
+𝜇 to fully exploit cross-modal semantic alignment and reinforce global 
+reasoning. The diﬀerence in optimal 𝜇 values across datasets highlights 
+the need to adjust the LSSA weight according to dataset characteristics 
+to balance intra-modal puriﬁcation and global reasoning eﬀectively.
+In summary, the ablation study provides strong evidence that the 
+integration of perception, memory, self-alignment, and reasoning within 
+a closed-loop cognitive framework is the key driver of MMKGC-Agent’s 
+superior performance, and that proper weighting of LSSA according to 
+dataset characteristics is crucial for maximizing performance.
+5.4.  Exploration on perception module (RQ3)
+To determine the optimal sensory mechanism for the agent’s back-
+bone, we conduct an in-depth analysis of its ability to resolve global–
+local structural signals. We posit that a cognitive agent requires not just 
+passive reception of structural data, but an active attentional mechanism 
+to discriminate between informative and noisy neighbors. To validate 
+this, we substitute the local aggregation component of the Perception 
+Module with ﬁve representative GNN architectures—GATv2, GATv1, 
+GraphSAGE, GCN, and GIN—and evaluate their impact on the agent’s 
+reasoning behavior.
+The results, visualized in Fig. 4, reveal a clear hierarchy of sensory 
+acuity. Attention-based mechanisms (GAT variants) consistently outper-
+form static aggregators (GCN, GraphSAGE, GIN). This indicates that 
+treating all structural neighbors equally (or purely based on topology) 
+is insuﬃcient for multimodal reasoning; the agent must actively weigh 
+the importance of neighbors based on their semantic relevance.
+Crucially, GATv2 achieves the strongest performance. unlike stan-
+dard GAT, which learns a static attention distribution, GATv2 employs a 
+strictly dynamic attention mechanism that modiﬁes connection weights 
+Expert Systems With Applications 318 (2026) 132001 
+9 
+
+K. Yang et al.
+Table 3 
+Ablation study results on DB15K, MKG-W, MKG-Y, and KVC16K datasets. Both Sequential-Stack and Full Model are optimized using the Barlow Twins
+strategy with dataset-speciﬁc 𝜇 values (𝜇= 10 for DB15K, 𝜇= 100 for MKG-W/MKG-Y, and 𝜇= 1000 for KVC16K). Sequential-Stack serves as a non-
+agentic baseline that employs identical components (Transformer, GAT, and Barlow Twins) but integrates them via simple linear concatenation instead of 
+our proposed closed-loop memory interaction.
+Setting
+ DB15K
+ MKG-W
+ MKG-Y
+ KVC16K
+ MRR  Hit@1  Hit@3  Hit@10  MRR  Hit@1  Hit@3  Hit@10  MRR  Hit@1  Hit@3  Hit@10  MRR  Hit@1  Hit@3  Hit@10
+Arch. Synergy
+ Perception Module
+ 37.37  29.77  41.13  52.17
+ 36.54  29.81  39.01  48.24
+ 37.44  35.81  38.23  42.99
+ 14.55  7.43
+ 14.33  25.98
+ Memory Module
+ 37.01  29.55  40.28  51.25
+ 36.29  30.29  38.61  47.37
+ 37.55  36.49  38.37  43.01
+ 14.43  7.75
+ 14.45  25.99
+ Self-Alignment Module  36.89  28.99  40.68  52.01
+ 36.44  30.29  38.69  47.94
+ 37.41  36.25  38.11  42.98
+ 14.54  7.35
+ 14.32  25.94
+ w/o Perception
+ 37.28  29.70  40.68  51.94
+ 35.81  29.73  37.89  47.13
+ 37.56  36.08  38.33  43.23
+ 14.75  7.77
+ 14.55  26.01
+ w/o Memory Module
+ 37.59  29.56  41.56  52.82
+ 36.78  30.77  39.07  48.25
+ 37.78  35.77  38.08  43.26
+ 14.65  7.62
+ 14.37  25.97
+ w/o Self-Alignment
+ 37.66  29.95  41.50  52.24
+ 36.63  30.10  39.48  48.40
+ 37.95  36.10  38.48  43.34
+ 14.76  7.84
+ 14.97  26.10
+Self- Alignment
+ w/o 𝑠(𝑒)+𝑣(𝑒)+𝑤(𝑒)
+ 37.86  29.93  41.75  52.86
+ 36.37  29.87  38.88  48.05
+ 38.14  35.76  38.72  43.76
+ 14.87  7.98
+ 15.15  26.68
+ w/o 𝑣(𝑒)+𝑤(𝑒)
+ 37.93  29.97  41.87  52.90
+ 36.47  29.99  38.96  48.11
+ 38.55  36.25  38.99  43.91
+ 15.32  8.76
+ 15.75  27.08
+ w/o 𝑤(𝑒)
+ 37.99  30.06  41.96  53.04
+ 36.76  30.21  39.31  48.24
+ 38.75  36.37  39.66  44.17
+ 15.87  9.15
+ 16.31  27.28
+ w/o 𝑣(𝑒)
+ 38.01  30.14  42.04  53.08
+ 36.78  30.27  39.41  48.33
+ 38.99  36.42  39.54  44.31
+ 15.98  9.27
+ 16.41  27.33
+𝜇= 1
+ 37.36  29.75  41.38  52.29
+ 36.17  29.76  38.68  47.86
+ 39.05  36.66  41.12  44.75
+ 16.17  9.76
+ 16.68  27.86
+𝜇= 10
+ 37.54  29.90  41.17  52.45
+ 36.58  30.48  39.14  48.43
+ 39.43  37.05  41.56  45.88
+ 16.47  9.91
+ 17.14  28.43
+𝜇= 100
+ 37.84  30.27  41.33  52.52
+ 37.16  30.95  39.83  48.84
+ 39.05  36.37  41.23  45.57
+ 16.53  10.01  17.62  28.47
+𝜇= 1000
+ 38.32  30.38  42.44  53.25
+ 36.54  30.28  39.11  48.14
+ 38.97  36.12  40.99  44.11
+ 16.67  10.34  18.85  29.52
+ InfoNCE
+ 37.20  29.61  40.84  51.65
+ 35.74  29.34  38.10  47.52
+ 38.07  35.64  40.59  43.81
+ 15.74  8.32
+ 16.47  27.61
+ Barlow Twins
+ 38.32  30.38  42.44  53.25
+ 37.16  30.95  39.83  48.84
+ 39.43  37.05  41.56  45.88
+ 16.67  10.34  18.85  29.52
+ Sequential-Stack
+ 36.52  28.41  40.02  51.10
+ 35.61  28.77  37.94  47.02
+ 37.12  35.54  37.88  42.10
+ 13.98  6.88
+ 13.84  24.55
+ Full Model
+ 38.32  30.38  42.44  53.25
+ 37.16  30.95  39.83  48.84
+ 39.43  37.05  41.56  45.88
+ 16.67  10.34  18.85  29.52
+Fig. 4. Performance comparison of diﬀerent neighborhood aggregation strate-
+gies within the perception module on DB15K.
+based on the speciﬁc interaction between the central entity and its 
+neighbors. This capability mirrors human-like selective attention, en-
+abling the agent to ﬁlter out structural noise and reﬁne local semantics 
+while maintaining coherence with the global topology.
+These ﬁndings conﬁrm that the global–local dual-path design is a 
+fundamental cognitive necessity. By dynamically adjusting attention 
+across structural neighborhoods, the perception module ensures that the 
+Memory Module receives high-ﬁdelity, structurally reﬁned “raw materi-
+als,” which is the prerequisite for robust downstream memory construc-
+tion and reasoning.
+5.5.  Exploration on memory module (RQ4)
+To investigate the relationship between reasoning depth and decision 
+precision, we conduct a parameter study on the maximum interaction 
+depth (𝐾) within the LRMP module. Rather than functioning as a simple 
+residual operator, LRMP acts as a recursive reﬁnement mechanism: it 
+repeatedly performs interaction operations between the entity memory 
+state and the relation, accumulating short-term structural patterns into 
+an increasingly enriched cognitive state.
+Fig. 5 visualizes the performance trajectory on the four datasets as 
+the interaction depth increases from 1 to 5. while both exhibit an up-
+ward trend, the improvement in Hits@1 is signiﬁcantly sharper than 
+that in MRR. Speciﬁcally, on the DB15K dataset, Hits@1 improves from 
+approximately 29.5% to 30.3% (a relative gain of ∼2.7%), whereas the 
+growth in MRR is more gradual. This disparity reveals the true nature of 
+the memory mechanism: it contributes less to “general ranking” (ﬁnding 
+the neighborhood) and more to “precision disambiguation” (identifying 
+the exact target). With fewer interaction steps, the agent captures the 
+broad structural context, which is suﬃcient to place the correct entity 
+near the top (maintaining a decent MRR) but often fails to distinguish it 
+from similar distractors. As the interaction cycles increase, the memory 
+module iteratively ﬁlters out these plausible but incorrect candidates. 
+This process eﬀectively sharpens the decision boundary, allowing the 
+agent to convert “top-ranking guesses” into “top-1 certainties.” There-
+fore, the LRMP does not merely stabilize training; it equips the agent 
+with the capacity for progressive disambiguation, ensuring that deeper 
+deliberation leads to more precise outcomes.
+5.6.  Exploration on self-alignment module (RQ5)
+To further dissect the stabilizing role of the LSSA module, we con-
+ducted ﬁne-grained ablation studies on both the composition of the pos-
+itive alignment set (𝑒) and the choice of the underlying optimization 
+objective. First, we evaluated the impact of diﬀerent semantic views 
+within the alignment set (𝑒) = {𝑒sec, 𝑠(𝑒), 𝑣(𝑒), 𝑤(𝑒)}. As shown in Ta-
+ble 3, the comprehensive integration of global structural cues (𝑠(𝑒)), vi-
+sual features (𝑣(𝑒)), and textual representations (𝑤(𝑒)) yields the highest 
+performance. Removing any single view weakens the agent’s internal 
+consistency. This demonstrates that LSSA functions as a holistic seman-
+tic anchor: by forcing these heterogeneous signals to align, the module 
+neutralizes modality-speciﬁc noise, ensuring that the agent’s memory 
+is built upon a robust, multifaceted understanding of the entity rather 
+than biased, single-source features.
+We further compared the proposed redundancy-reduction objec-
+tive (Barlow Twins) against the traditional contrastive objective (In-
+foNCE). The results in Table 3 reveal that Barlow Twins achieves consis-
+tently superior performance. We attribute this to the fundamental dif-
+ference in their mechanisms: InfoNCE relies on negative sampling to 
+perform instance discrimination, which carries the risk of “false nega-
+tives” (repelling semantically similar entities) and depends heavily on 
+batch size. Barlow Twins, conversely, focuses on feature disentangle-
+ment. By minimizing the oﬀ-diagonal terms of the cross-correlation 
+matrix, it forces the learned feature dimensions to be orthogonal
+(non-redundant).
+This property is critical for the agent’s cognitive loop: it provides 
+the subsequent Memory Module with clean, disentangled feature axes, 
+allowing the LRMP to manipulate distinct semantic attributes without 
+interference, thereby ensuring stable and precise reasoning.
+Expert Systems With Applications 318 (2026) 132001 
+10 
+
+K. Yang et al.
+Fig. 5. Interaction depth analysis of the Learnable Residual Memory Pathway across four heterogeneous datasets.
+Fig. 6. Sensitivity analysis of MMKGC-Agent with respect to hidden dimension, embedding dimension, dropout rate, and learning rate, evaluated by MRR on DB15K 
+and MKG-W. The x-axis denotes diﬀerent hyperparameters, and the y-axis shows MRR.
+5.7.  Sensitivity analysis for hyperparameter choices (RQ6)
+To assess the adaptability of the proposed MMKGC-Agent, we further 
+conduct a sensitivity analysis with respect to four key hyper-parameters: 
+hidden dimension, embedding dimension, dropout rate, and learning 
+rate. This analysis reﬂects how the agent’s cognitive loop responds to 
+diﬀerent capacity and regularization settings, thereby oﬀering insight 
+into its robustness under varying environmental conditions. Represen-
+tative results are shown in Fig. 6.
+Hidden Dimension. The experimental results indicate that the Mean 
+Reciprocal Rank (MRR) steadily increases with the hidden dimension, 
+peaking at 1024. At smaller values (e.g., 4, 8, 16), the model’s expressive 
+capacity is severely constrained, leading to low MRR. Unlike the embed-
+ding dimension, enlarging the hidden dimension does not signiﬁcantly 
+harm performance, suggesting that the agent eﬀectively leverages the 
+additional capacity without accumulating excessive noise.
+Embedding Dimension. As shown in Fig. 6, the MRR improves as 
+the embedding dimension increases, with the best performance at 256. 
+Expert Systems With Applications 318 (2026) 132001 
+11 
+
+K. Yang et al.
+Fig. 7. The results of the eﬃciency experiment. We report the MRR and Hit@1 results on the DB15K datasets.
+Further enlargement to 384 and 512 results in performance degradation, 
+indicating that overly high embedding dimensionality introduces redun-
+dancy and weakens semantic purity. This demonstrates that a moderate 
+embedding size is optimal for balancing expressiveness and semantic 
+alignment.
+Dropout Rate. The dropout rate plays a crucial role in regulating the 
+agent’s ability to generalize across multimodal cues. On DB15K, the peak 
+MRR (38.32) occurs at a dropout rate of 0.6, while on MKG-W, MKG-
+Y andKVC16K, the optimal value is reached at 0.9. Moderate dropout 
+eﬀectively prevents over-ﬁtting, but excessively high dropout hampers 
+representation learning, conﬁrming that regularization must be care-
+fully tuned to maintain cognitive stability.
+Learning Rate. The learning rate strongly inﬂuences convergence 
+and stability. On both datasets, MRR improves as the rate increases, 
+reaching an optimal point around 5 × 10−4. Beyond this threshold, per-
+formance declines, and at 0.001 the model becomes unstable due to 
+overly aggressive gradient updates. These results suggest that a learn-
+ing rate near 5 × 10−4 provides a favorable balance between convergence 
+eﬃciency and reasoning accuracy.
+Overall, the sensitivity analysis shows that the MMKGC-Agent main-
+tains stable performance across a range of hyper-parameter choices, 
+while achieving peak results under speciﬁc conﬁgurations. This robust-
+ness underscores its adaptability and indicates that its cognitive frame-
+work is not overly dependent on fragile parameter settings.
+5.8.  Eﬃciency analysis (RQ7)
+To evaluate the computational eﬃciency of MMKGC-Agent in con-
+junction with its cognitive eﬀectiveness, we conducted dedicated run-
+time measurements. As shown in Fig. 7, which reports results on the 
+DB15K dataset, MMKGC-Agent achieves strong 𝑀𝑅𝑅 and 𝐻𝑖𝑡@1 per-
+formance while maintaining a competitive per-epoch training time. On 
+DB15K, each training epoch requires approximately 8.1 s, which is com-
+parable to that of the fastest baseline method, VISTA, while yielding 
+notably improved predictive accuracy. These results indicate that the 
+proposed closed-loop cognitive architecture does not incur additional 
+computational overhead and is suitable for practical MMKGC applica-
+tions.
+In addition to DB15K, we further measured the training eﬃciency of 
+MMKGC-Agent on three additional benchmarks. On the medium-scale 
+MKG-W and MKG-Y datasets, the per-epoch training times are 6.0 s and 
+3.8 s, respectively. To assess scalability on larger graphs, we also eval-
+uated MMKGC-Agent on the large-scale KVC16K dataset, where a sin-
+gle training epoch requires approximately 24 s. Although the results on 
+these datasets are not visualized in Fig. 7, the measured runtimes consis-
+tently demonstrate stable scaling behavior as the graph size increases.
+Fig. 8. Embedding visualization results.
+To provide theoretical insight into the observed scalability, we ana-
+lyze the computational complexity of MMKGC-Agent. Let |𝑇| denote the 
+number of triples in the multimodal knowledge graph, 𝑑 the embedding 
+dimension, and ̄𝑘 the average one-hop neighborhood size. The global 
+multimodal perception encoder processes bounded-length text–image 
+sequences for each triple with a computational cost of 𝑂(|𝑇| ⋅𝑑). The 
+local graph encoder applies dynamic attention within one-hop neigh-
+borhoods, resulting in a complexity of 𝑂(|𝑇| ⋅̄𝑘⋅𝑑). The residual mem-
+ory pathway and the self-alignment module consist of ﬁxed-depth trans-
+formations and redundancy reduction operations, which together con-
+tribute an additional cost of 𝑂(|𝑇| ⋅𝑑). Finally, the TuckER-style reason-
+ing module scores each triple through bilinear interactions, yielding an 
+overall decoding complexity of 𝑂(|𝑇| ⋅𝑑2). Since both 𝑑 and ̄𝑘 remain 
+bounded in practical MMKG settings, the total per-epoch training time 
+scales linearly with |𝑇|.
+Overall, the empirical results on DB15K, MKG-Y, MKG-W, and 
+KVC16K, together with the complexity analysis, indicate that MMKGC-
+Agent achieves an eﬀective balance between enhanced multimodal rea-
+soning capability and practical computational scalability.
+5.9.  Case study (RQ8)
+To further illustrate the eﬀectiveness of the proposed MMKGC-Agent, 
+we conduct a case study on selected entities from DB15K. Four repre-
+sentative categories—artist, city, organization, and country—are cho-
+sen, with two entities sampled per category. For each entity, the multi-
+modal sequence 𝑒′ is tokenized into semantic atoms, and t-SNE is applied 
+to project their embeddings into a 2D space (Fig. 8). The resulting vi-
+sualization shows that MMKGC-Agent produces compact entity-speciﬁc 
+Expert Systems With Applications 318 (2026) 132001 
+12 
+
+K. Yang et al.
+Table 4 
+Query-Adaptive Scores of MMKGC-Agent vs. Static MyGO.
+ Method  Head
+ Relation
+ Tail
+ S(h,r,t)  Cosine sim. w/h
+ MyGO
+̃ℎ(Amazon)  headquarters
+̃𝑡(Seattle)
+ 0.68
+ -
+ Ours
+̃ℎ′′(Amazon)  headquarters
+̃𝑡′′(Seattle)
+ 0.97
+ -
+ Ours
+̃ℎ′′(Apple)
+ headquarters
+̃𝑡′′(Cupertino)  -
+ 0.85
+ Ours
+̃ℎ′′(Apple)
+ product category
+̃𝑡′′(Electronics)  -
+ 0.72
+clusters with clear inter-entity separation. Even entities within the same 
+category exhibit distinct internal structures, demonstrating the model’s 
+ability to capture both ﬁne-grained local interactions and global seman-
+tic context.
+To highlight the advantage over baseline methods, we visualize 
+MyGO under identical t-SNE settings. As shown in Fig. 8, MyGO gener-
+ates mixed and overlapping clusters—especially among visually similar 
+countries and organizations—suggesting limited capacity for isolating 
+entity-speciﬁc semantics. In contrast, MMKGC-Agent achieves signiﬁ-
+cantly stronger intra-class cohesion and inter-class separation, conﬁrm-
+ing that the closed-loop Perception → Memory → Self-Alignment → Rea-
+soning pipeline yields more discriminative multimodal representations.
+We further examine ambiguous multimodal triples such as (Ama-
+zon, headquarters, Seattle). Baselines like MyGO, lacking local memory of 
+ﬁne-grained evidence, are easily inﬂuenced by irrelevant visual cues and 
+thus produce low-conﬁdence predictions (score 0.68). MMKGC-Agent, 
+however, retrieves discriminative local signals—such as company logos 
+and product descriptions—and the LSSA module reinforces their rel-
+evance while suppressing noise, resulting in a puriﬁed embedding 𝑒′
+and a correct prediction with high conﬁdence (score 0.97). This trend 
+aligns with Table 4, where MMKGC-Agent consistently yields higher 
+triple scores on ambiguous queries.
+Finally, we analyze MMKGC-Agent’s dynamic reasoning capability 
+by inspecting query-dependent memory states ̃𝐡′′. For the entity “Ap-
+ple,” the agent generates two distinct memory representations for the 
+relations 𝑟1 (“headquarters”) and 𝑟2 (“product category”). Unlike static 
+KGE models, which use a ﬁxed embedding, MMKGC-Agent produces two 
+clearly diﬀerentiated memory states with a high Euclidean distance of 
+0.51.Furthermore, we note that the cosine similarity between the orig-
+inal entity embedding 𝐡 and the two generated memory states is 0.85
+and 0.72 for 𝑟1 and 𝑟2, respectively, underscoring the preservation of 
+global identity while achieving context-speciﬁc adaptation. These states 
+bias the representation toward geographic cues for 𝑟1 and product fea-
+tures for 𝑟2, enabling accurate predictions of Cupertino and CElectron-
+ics, respectively. This conﬁrms that the agent performs genuine query-
+dependent semantic adaptation.
+Overall, this case study shows that MMKGC-Agent’s superiority stems 
+not only from enhanced multimodal perception but also from its local-
+memory-driven semantic reﬁnement. The synergy among perception, 
+memory, self-alignment, and reasoning yields robust, ﬁne-grained, and 
+context-sensitive embeddings, enabling superior knowledge completion 
+performance in complex multimodal environments. 
+6.  Conclusion
+In this paper, we introduced the MMKGC-Agent, a framework that 
+fundamentally shifts the paradigm of Multimodal Knowledge Graph 
+Completion from static representation matching to dynamic cognitive 
+reasoning. By establishing a uniﬁed closed-loop cognitive architecture 
+that integrates perception, memory, and stabilization, the agent success-
+fully overcomes the inherent rigidity of conventional embedding mod-
+els. The core innovation lies in the functional interdependency between 
+the Learnable Residual Memory Pathway and the Self-Alignment mech-
+anism, which enables the agent to actively synthesize query-dependent 
+memory states while maintaining global semantic coherence. This syn-
+ergistic design represents a non-trivial advancement over simple sequen-
+tial stacking by eﬀectively balancing representational plasticity with in-
+trinsic stability.
+Empirical evaluations across four diverse benchmarks validate the 
+superiority of this approach, demonstrating remarkable robustness 
+against multimodal noise and exceptional precision in resolving seman-
+tic ambiguities. Notably, our complexity analysis reveals that despite its 
+cognitive richness, the agent maintains a favorable computational eﬃ-
+ciency with a linear complexity of 𝑂(|𝑇|𝑑2), striking an optimal balance 
+between reasoning depth and scalability. While we acknowledge cer-
+tain limitations, such as the sensitivity to the stabilization weight 𝜇 and 
+the memory footprint when processing ultra-large-scale graphs, these 
+constraints are counterbalanced by the agent’s superior predictive accu-
+racy and adaptive capabilities. Future research will focus on developing 
+automated hyperparameter optimization strategies and enhancing the 
+scalability of the agentic reasoning process for massive knowledge envi-
+ronments, ultimately extending this paradigm to complex autonomous 
+reasoning tasks.
+CRediT authorship contribution statement
+Kai Yang: Conceptualization, Methodology, Software, Formal anal-
+ysis, Experimental investigation, Visualization, Writing – original draft, 
+Writing – review & editing; Xinzhi Wang: Data curation, Software, Val-
+idation, Writing – review & editing; Baoguo Lu: Data curation, Valida-
+tion, Writing – review & editing; Xiangfeng Luo: Supervision, Method-
+ological guidance, Writing – review & editing, Funding acquisition;
+Chengfan Li: Supervision, Resources, Project administration, Funding 
+acquisition; Jianqiang Huang: Investigation, Results analysis, Writing 
+– review & editing.
+Data avalibility
+I have shared the link to the repository. All datasets and 
+source code are openly available at https://github.com/KaiYang2001/
+MMKGC-Agent.
+Declaration of competing interest
+The authors declare that they have no known competing ﬁnancial 
+interests or personal relationships that could have appeared to inﬂuence 
+the work reported in this paper. 
+Acknowledgements
+The research reported in this paper was supported in part by 
+the National Nature Science Foundation of China under the grant 
+No.61991415.
+References
+Bo, X., Zhang, Z., Dai, Q., Feng, X., Wang, L., Li, R., Chen, X., & Wen, J.-R. (2024). Re-
+ﬂective multi-agent collaboration based on large language models. In Advances in neu-
+ral information processing systems (neurIPS) 2024. NeurIPS 2024 poster / OpenReview 
+preprint https://openreview.net/pdf?id=wWiAR5mqXq.
+Bordes, A., Usunier, N., Garcia-Durán, A., Weston, J., & Yakhnenko, O. (2013). Translating 
+embeddings for modeling multi-relational data. In Proceedings of the 27th international 
+conference on neural information processing systems - volume 2 NIPS’13 (p. 2787–2795). 
+Red Hook, NY, USA: Curran Associates Inc.
+Cao, X., Shi, Y., Wang, J., Yu, H., Wang, X., & Yan, Z. (2022a). Cross-modal knowledge 
+graph contrastive learning for machine learning method recommendation. In Proceed-
+ings of the 30th ACM international conference on multimedia MM ’22 (p. 3694–3702). 
+New York, NY, USA: Association for Computing Machinery. https://doi.org/10.1145/
+3503161.3548273
+Cao, Z., Xu, Q., Yang, Z., He, Y., Cao, X., & Huang, Q. (2022b). Otkge: multi-
+modal knowledge graph embeddings via optimal transport. In S. Koyejo, 
+S. Mohamed, A. Agarwal, D. Belgrave, K. Cho, & A. Oh (Eds.), Advances in 
+neural information processing systems (pp. 39090–39102). Curran Associates, 
+Inc. 
+(vol. 
+35). 
+https://proceedings.neurips.cc/paper_ﬁles/paper/2022/ﬁle/
+ﬀdb280e7c7b4c4af30e04daf5a84b98-Paper-Conference.pdf.
+Caron, M., Misra, I., Mairal, J., Goyal, P., Bojanowski, P., & Joulin, A. (2020). Unsuper-
+vised learning of visual features by contrasting cluster assignments. In Proceedings of 
+the 34th international conference on neural information processing systems NIPS ’20. Red 
+Hook, NY, USA: Curran Associates Inc.
+Chen, L., Li, Z., Wang, Y., Xu, T., Wang, Z., & Chen, E. (2020a). Mmea: entity alignment 
+for multi-modal knowledge graph. In International conference on knowledge science, en-
+gineering and management (pp. 134–147). Springer.
+Expert Systems With Applications 318 (2026) 132001 
+13 
+
+K. Yang et al.
+Chen, T., Kornblith, S., Norouzi, M., & Hinton, G. (2020b). A simple framework for con-
+trastive learning of visual representations. In Proceedings of the 37th international con-
+ference on machine learning ICML’20. JMLR.org.
+Chen, Z., Zhang, W., Huang, Y., Chen, M., Geng, Y., Yu, H., Bi, Z., Zhang, Y., 
+Yao, Z., Song, W., Wu, X., Yang, Y., Chen, M., Lian, Z., Li, Y., Cheng, L.,
+& Chen, H. (2023). Tele-knowledge pre-training for fault analysis. In ICDE (pp. 
+3453–3466). IEEE.
+Chen, Z., Zhang, Y., Fang, Y., Geng, Y., Guo, L., Chen, X., Li, Q., Zhang, W., Chen, J., 
+Zhu, Y., Li, J., Liu, X., Pan, J. Z., Zhang, N., & Chen, H.-z. (2024). Knowledge graphs 
+meet multi-modal learning: A comprehensive survey. https://api.semanticscholar.org/
+CorpusID:267547866, arXiv:2402.05391.
+Cheng, P., Hao, W., Dai, S., Liu, J., Gan, Z., & Carin, L. (2020). Club: a contrastive log-ratio 
+upper bound of mutual information. In Proceedings of the 37th international conference 
+on machine learning ICML’20. JMLR.org.
+Devlin, J., Chang, M.-W., Lee, K., & Toutanova, K., et al. (2019). BERT: Pre-training of 
+deep bidirectional transformers for language understanding. In J. Burstein, C. Doran, 
+& T. Solorio (Eds.), Proceedings of the 2019 conference of the north American chapter of the 
+association for computational linguistics: Human language technologies, volume 1 (long and 
+short papers) (pp. 4171–4186). Minneapolis, Minnesota: Association for Computational 
+Linguistics. https://doi.org/10.18653/v1/N19-1423
+Gong, B., Tan, S., Feng, Y., Xie, X., Li, Y., Chen, C., Zheng, K., Shen, Y., & Zhao, 
+D. (2024). Uknow: a uniﬁed knowledge protocol with multimodal knowledge 
+graph datasets for reasoning and vision-language pre-training. In A. Glober-
+son, L. Mackey, D. Belgrave, A. Fan, U. Paquet, J. Tomczak, & C. Zhang 
+(Eds.), Advances in neural information processing systems (pp. 9612–9633).
+Curran Associates, Inc. (vol. 37). https://proceedings.neurips.cc/paper_ﬁles/paper/
+2024/ﬁle/126784e4d5a92aﬀf92d13aee155554b-Paper-Datasets_and_Benchmarks_
+Track.pdf.
+Guo, S., Deng, C., Wen, Y., Chen, H., Chang, Y., & Wang, J. (2024). DS-Agent: auto-
+mated data science by empowering large language models with case-based reason-
+ing. In Forty-ﬁrst international conference on machine learning. https://openreview.net/
+forum?id=LfJgeBNCFI.
+He, K., Fan, H., Wu, Y., Xie, S., & Girshick, R. (2020). Momentum contrast for unsupervised 
+visual representation learning. In 2020 IEEE/CVF conference on computer vision and pat-
+tern recognition (CVPR) (pp. 9726–9735). https://doi.org/10.1109/CVPR42600.2020.
+00975
+Hong, S., Liu, Y., Li, Z., Li, S., & He, Y. (2024). Multi-agent collaborative perception via 
+motion-aware robust communication network. In Proceedings of the IEEE/CVF confer-
+ence on computer vision and pattern recognition (CVPR) (pp. 15301–15310).
+Jian, Y., Luo, X., Li, Z., Zhang, M., Zhang, Y., Xiao, K., & Hou, X. (2025a). Apkgc: noise-
+enhanced multi-modal knowledge graph completion with attention penalty. Proceed-
+ings of the AAAI Conference on Artiﬁcial Intelligence, 39(14), 15005–15013. https://ojs.
+aaai.org/index.php/AAAI/article/view/33645. https://doi.org/10.1609/aaai.v39i14.
+33645
+Jian, Y., Zhang, M., Qin, Z., Xie, C., Xiao, K., Zhang, Y., & Li, Z. (2025b). Adaptive modal-
+ity interaction transformer for multimodal knowledge graph completion. ACM Trans-
+actions on Knowledge Discovery From Data, 19(8). https://doi.org/10.1145/3760786
+Khosla, P., Teterwak, P., Wang, C., Sarna, A., Tian, Y., Isola, P., Maschinot, A., Liu, C., 
+& Krishnan, D. (2020). Supervised contrastive learning. In Proceedings of the 34th in-
+ternational conference on neural information processing systems NIPS ’20. Red Hook, NY, 
+USA: Curran Associates Inc.
+Lee, J., Chung, C., Lee, H., Jo, S., & Whang, J. (2023). VISTA: Visual-textual knowl-
+edge graph representation learning. In H. Bouamor, J. Pino, & K. Bali (Eds.), Findings 
+of the association for computational linguistics: EMNLP 2023 (pp. 7314–7328). Singa-
+pore: Association for Computational Linguistics. https://doi.org/10.18653/v1/2023.
+ﬁndings-emnlp.488
+Li, X., Zhao, X., Xu, J., Zhang, Y., & Xing, C. (2023). Imf: interactive multimodal fusion 
+model for link prediction. In Proceedings of the ACM web conference 2023 WWW ’23 
+(p. 2572–2580). New York, NY, USA: Association for Computing Machinery. https:
+//doi.org/10.1145/3543507.3583554
+Li, Z., Huang, W., Gong, X., Luo, X., Xiao, K., Deng, H., Zhang, M., & Zhang, Y. 
+(2025). Decoupled semantic graph neural network for knowledge graph embed-
+ding. Neurocomputing, 611, 128614. https://www.sciencedirect.com/science/article/
+pii/S0925231224013857. https://doi.org/10.1016/j.neucom.2024.128614
+Liu, Y., Li, H., Garcia-Duran, A., Niepert, M., Onoro-Rubio, D., & Rosenblum, D. S. (2019). 
+Mmkg: multi-modal knowledge graphs. In The semantic web: 16th international confer-
+ence, ESWC 2019, portorož, slovenia, june 2–6, 2019, proceedings (p. 459–474). Berlin, 
+Heidelberg: Springer-Verlag. https://doi.org/10.1007/978-3-030-21348-0_30
+Mousselly-Sergieh, H., Botschen, T., Gurevych, I., & Roth, S. (2018a). A multimodal 
+translation-based approach for knowledge graph representation learning. In M. Nis-
+sim, J. Berant, & A. Lenci (Eds.), Proceedings of the seventh joint conference on lexical 
+and computational semantics (pp. 225–234). New Orleans, Louisiana: Association for 
+Computational Linguistics. https://doi.org/10.18653/v1/S18-2027
+Mousselly-Sergieh, H., Botschen, T., Gurevych, I., & Roth, S. (2018b). A multimodal 
+translation-based approach for knowledge graph representation learning. In M. Nis-
+sim, J. Berant, & A. Lenci (Eds.), Proceedings of the seventh joint conference on lexical 
+and computational semantics (pp. 225–234). New Orleans, Louisiana: Association for 
+Computational Linguistics. https://doi.org/10.18653/v1/S18-2027
+Sun, R., Cao, X., Zhao, Y., Wan, J., Zhou, K., Zhang, F., Wang, Z., & Zheng, K. (2020). 
+Multi-modal knowledge graphs for recommender systems. In Proceedings of the 29th 
+ACM international conference on information & knowledge management CIKM ’20 (p. 
+1405–1414). New York, NY, USA: Association for Computing Machinery. https://doi.
+org/10.1145/3340531.3411947
+Trirat, P., Jeong, W., & Hwang, S. J. (2025). Automl-agent: a multi-agent LLM framework 
+for full-pipeline automl. In Proceedings of the 2025 international conference on machine 
+learning (ICML 2025). https://arxiv.org/abs/2410.02958.
+Wang, B., Zhang, L., Wang, Z., Zhao, Y., & Zhou, T. (2023a). Core: cooperative reconstruc-
+tion for multi-agent perception. In Proceedings of the IEEE/CVF international conference 
+on computer vision (ICCV) (pp. 8710–8720).
+Wang, M., Wang, S., Yang, H., Zhang, Z., Chen, X., & Qi, G. (2021). Is visual context really 
+helpful for knowledge graph? a representation learning perspective. In Proceedings of 
+the 29th ACM international conference on multimedia MM ’21 (p. 2735–2743). New York, 
+NY, USA: Association for Computing Machinery. https://doi.org/10.1145/3474085.
+3475470
+Wang, X., Meng, B., Chen, H., Meng, Y., Lv, K., & Zhu, W. (2023b). Tiva-kg: a multimodal 
+knowledge graph with text, image, video and audio. In Proceedings of the 31st ACM 
+international conference on multimedia MM ’23 (p. 2391–2399). New York, NY, USA: 
+Association for Computing Machinery. https://doi.org/10.1145/3581783.3612266
+Wang, Z., Li, L., Li, Q., & Zeng, D. (2019). Multimodal data enhanced representation 
+learning for knowledge graphs. In 2019 international joint conference on neural networks 
+(IJCNN) (pp. 1–8). https://doi.org/10.1109/IJCNN.2019.8852079
+Xie, R., Liu, Z., Luan, H., & Sun, M. (2017). Image-embodied knowledge representation 
+learning. In Proceedings of the twenty-sixth international joint conference on artiﬁcial in-
+telligence, IJCAI-17 (pp. 3140–3146). https://doi.org/10.24963/ijcai.2017/438
+Xu, D., Xu, T., Wu, S., Zhou, J., & Chen, E. (2022). Relation-enhanced negative sam-
+pling for multimodal knowledge graph completion. In Proceedings of the 30th ACM 
+international conference on multimedia MM ’22 (p. 3857–3866). New York, NY, USA: 
+Association for Computing Machinery. https://doi.org/10.1145/3503161.3548388
+Zhang, Y., Chen, M., & Zhang, W. (2023). Modality-aware negative sampling for multi-
+modal knowledge graph embedding. In 2023 international joint conference on neural 
+networks (IJCNN) (pp. 1–8). https://doi.org/10.1109/IJCNN54540.2023.10191314
+Zhang, Y., Chen, Z., Guo, L., Xu, Y., Hu, B., Liu, Z., Zhang, W., & Chen, H. (2024a). 
+Native: Multi-modal knowledge graph completion in the wild. https://arxiv.org/abs/
+2406.17605.
+Zhang, Y., Chen, Z., Guo, L., Xu, Y., Hu, B., Liu, Z., Zhang, W., & Chen, H. (2025). To-
+kenization, fusion, and augmentation: towards ﬁne-grained multi-modal entity repre-
+sentation. In AAAI (pp. 13322–13330). AAAI Press.
+Zhang, Y., Chen, Z., Liang, L., Chen, H., & Zhang, W. (2024b). Unleashing the power 
+of imbalanced modality information for multi-modal knowledge graph completion. 
+https://arxiv.org/abs/2402.15444.
+Expert Systems With Applications 318 (2026) 132001 
+14 

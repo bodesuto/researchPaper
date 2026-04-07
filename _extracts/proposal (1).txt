@@ -1,0 +1,486 @@
+CAMAS
+HệThống Tác Nhân Nhận Thức Vòng Lặp Khép Kín
+Với Tri Thức Động Và Căn Chỉnh Hợp Tác
+Khung Kiến Trúc ĐểTối Ưu Hóa An Toàn HệThống KỹThuật Phức Tạp
+Nguyễn Minh Thương
+Nghiên cứu sinh Tiến sĩ
+Đại học Bách Khoa Hà Nội
+Học viện Công nghệBưu chính Viễn thông
+Người Hướng Dẫn: GS. Phạm Văn Hải
+Hà Nội, Tháng 4 năm 2026
+
+CAMAS: Closed-Loop Architecture
+1
+Tóm Tắt Điều Hành (Executive Summary)
+Đềxuất này giải quyết ba vấn đềthen chốt trong hệthống tác nhân hiện đại bằng cách xây dựng
+CAMAS (Closed-Loop Cognitive Multi-Agent System) – khung kiến trúc đầu tiên tích hợp ba
+module tương tác vòng lặp khép kín:
+1. Perception (Giải quyết: Ảo giác) = Dual-Memory Knowledge Graph + LRMP + Barlow
+Twins
+2. Coordination (Giải quyết: Tri thức cứng nhắc) = Hierarchical MARL + MD-MDP +
+MHSAN + T-GCN
+3. Alignment (Giải quyết: Khoảng cách căn chỉnh) = Cooperative RLHF
+Logic vòng lặp khép kín: Perception sinh ra tri thức động →Coordination tối ưu hành
+động dựa trên tri thức →Alignment căn chỉnh policy từphản hồi con người →Vòng lặp lặp lại.
+Kết quảdựkiến: Giảm ảo giác ≥40%, tăng lợi nhuận 18−25%, giảm rủi ro ≥65%, HHS
+≥0.88, Safety Index ≥0.98.
+
+CAMAS: Closed-Loop Architecture
+2
+Mục lục
+1
+Vấn ĐềVà Động Lực Nghiên Cứu
+3
+1.0.1
+Vấn Đề1: Ảo Giác (Hallucination) . . . . . . . . . . . . . . . . . . . .
+3
+1.0.2
+Vấn Đề2: Tri Thức Cứng Nhắc (Rigid Knowledge Representation) . . .
+3
+1.0.3
+Vấn Đề3: Khoảng Cách Căn Chỉnh (Alignment Gap) . . . . . . . . . .
+4
+2
+Mục Tiêu Và Câu Hỏi Nghiên Cứu
+4
+3
+Nền Tảng Lý Thuyết – Liên Kết Vấn Đề-Giải Pháp
+5
+3.1
+Vấn Đề1 →Giải Pháp: Dual Memory Knowledge Graph . . . . . . . . . . . .
+5
+3.2
+Vấn Đề1 →Giải Pháp: Learnable Residual Memory Pathway (LRMP) . . . . .
+5
+3.3
+Vấn Đề2 →Giải Pháp: Hierarchical MARL + MD-MDP . . . . . . . . . . . .
+6
+3.4
+Vấn Đề3 →Giải Pháp: Cooperative RLHF
+. . . . . . . . . . . . . . . . . . .
+6
+3.5
+Barlow Twins: Stabilization ĐểTránh Collapse
+. . . . . . . . . . . . . . . . .
+7
+4
+Logic Vòng Lặp Khép Kín: Cách 3 Module Tương Tác
+7
+5
+Thiết KếThực Nghiệm – Kiểm Chứng Mỗi Module
+8
+6
+LộTrình Thực Hiện – Xây Dựng Từng Module
+9
+7
+Kết QuảDựKiến
+10
+
+CAMAS: Closed-Loop Architecture
+3
+1. Vấn ĐềVà Động Lực Nghiên Cứu
+Bối Cảnh: Công Nghiệp 4.0 Đòi Hỏi Gì?
+Công nghiệp 4.0 đòi hỏi:
+1. Vận hành tựđộng không cần con người can thiệp
+2. Thích ứng thời gian thực với thay đổi môi trường
+3. Tuân thủràng buộc vật lý (không được vượt quá năng lực thiết bị)
+4. Tuân thủràng buộc an toàn (không được làm hỏng hệthống)
+Ba Vấn ĐềThen Chốt Của Tác Nhân AI Hiện Nay
+1.0.1. Vấn Đề1: Ảo Giác (Hallucination)
+[Vấn đề: Tác nhân sinh ra thông tin sai mà không biết là sai]
+Nguyên nhân cơ bản: Tác nhân LLM hiện nay không có cách đểtheo dõi trạng thái thực
+tế(Observability). Chúng chỉdựđoán từtiếp theo dựa trên xác suất từvocab, không có bộnhớ
+vềnhững gì đã xảy ra thực sự.
+Ví dụcụthể:
+• Smart grid: Agent dựđoán tải điện mà không biết giá trịđo đạc hiện tại →Tạo kếhoạch
+sai
+• FJSP: Agent xếp công việc không biết máy đã hỏng →Tạo schedule không thực hiện
+được
+Tác động: Cao độ! Ảo giác trực tiếp dẫn đến sai quyết định trong môi trường real-time.
+1.0.2. Vấn Đề2: Tri Thức Cứng Nhắc (Rigid Knowledge Representation)
+[Vấn đề: Tác nhân không thểthay đổi cách hiểu vấn đềkhi context thay đổi]
+Nguyên nhân cơ bản: Tri thức hiện nay dùng nhúng tĩnh (static embeddings). Mỗi khái
+niệm chỉcó một biểu diễn duy nhất, không phụthuộc ngữcảnh truy vấn.
+Ví dụcụthể:
+• "Tải điện"luôn có cùng một biểu diễn, dù bối cảnh là dựbáo tải (cần historical data) hay
+phán ánh hiện tại (cần sensor data)
+• "Công việc"luôn có cùng một biểu diễn, dù bối cảnh là xếp lịch hay dựbáo deadline
+Tác động: Cao độ! Đặc biệt trong hệthống phức tạp có nhiều interpretations.
+
+CAMAS: Closed-Loop Architecture
+4
+1.0.3. Vấn Đề3: Khoảng Cách Căn Chỉnh (Alignment Gap)
+[Vấn đề: Tối ưu hóa lợi nhuận nhưng không đảm bảo an toàn và ràng buộc vật lý]
+Nguyên nhân cơ bản: Các phương pháp RLHF hiện nay (Liu et al., 2026) chỉhọc từphản
+hồi con người đểtối ưu LLM, không có cơ chếđểbuộc ràng buộc vật lý.
+Ví dụcụthế:
+• Smart grid: Optimize tối đa lợi nhuận nhưng vượt quá năng lực đường dây →Cháy nổ
+• FJSP: Optimize tối đa hiệu suất nhưng máy không đủcông suất →Hỏng máy
+Tác động: Cực cao! An toàn là ràng buộc cứng (hard constraint), không phải mềm (soft
+constraint).
+Tại Sao Ba Vấn ĐềNày Xảy Ra?
+Vấn Đề
+Nguyên Nhân
+Ảnh Hưởng
+Ảo giác
+Không có Observability Memory
+Quyết định sai
+Tri thức cứng
+Static embeddings
+Không adapt context
+Alignment gap
+Không hard constraint
+Vi phạm an toàn
+Bài Toán Cốt Lõi
+Xây dựng khung kiến trúc CAMAS sao cho:
+1. (Giải vấn đề1) Giảm ảo giác bằng cách theo dõi trạng thái thực tếliên tục
+2. (Giải vấn đề2) Tạo tri thức động bằng cách sinh biểu diễn tùy ngữcảnh
+3. (Giải vấn đề3) Bảo đảm an toàn bằng cách tích hợp hard constraints vào RLHF
+2. Mục Tiêu Và Câu Hỏi Nghiên Cứu
+Liên Kết Rõ Ràng TừVấn ĐềSang Mục Tiêu
+Vấn Đề
+Nguyên Nhân
+Module Giải Quyết
+Mục Tiêu Metric
+Ảo giác
+Ko Observability
+Perception + Dual Memory
+Giảm hallucination ≥40%
+Tri thức cứng
+Static embeddings
+Coordination + LRMP
+HHS ≥0.88
+Alignment gap
+Ko hard constraint
+Alignment + CoRLHF
+Safety Index ≥0.98
+Tối ưu chung
+3 module riêng biệt
+Closed-loop integration
+Profit ↑18−25%
+Mục Tiêu Chính
+Xây dựng và kiểm chứng CAMAS sao cho:
+
+CAMAS: Closed-Loop Architecture
+5
+
+
+
+
+
+
+
+
+
+
+
+
+
+Hallucination Rate
+↓≥40%
+(từPerception)
+HHS (Alignment Quality)
+≥0.88
+(từCoordination)
+Safety Index
+≥0.98
+(từAlignment)
+Profit Improvement
+↑18−25%
+(từvòng lặp)
+(1)
+Câu Hỏi Nghiên Cứu (RQ) – Liên Kết Với Module
+1. RQ1 (Perception): Dual Memory KG + LRMP giảm ảo giác bao nhiêu so với single
+memory systems?
+Giải thích: Dual Memory cấp Observability Memory đểtheo dõi thực tế, LRMP cấp
+context-aware representation đểbiểu diễn dynamic.
+2. RQ2 (Coordination): Hierarchical MARL + MD-MDP + MHSAN + T-GCN sinh ra biểu
+diễn tùy ngữcảnh tốt bao nhiêu (HHS)?
+Giải thích: Hierarchical MARL tối ưu hợp tác, MD-MDP tích hợp constraints, MHSAN
++ T-GCN xửlý dependencies.
+3. RQ3 (Alignment): CoRLHF tối ưu policy vừa maximize reward vừa satisfy constraints
+tốt bao nhiêu (Safety Index)?
+Giải thích: CoRLHF học từphản hồi con người đểbalance profitability và safety.
+3. Nền Tảng Lý Thuyết – Liên Kết Vấn Đề-Giải Pháp
+3.1. Vấn Đề1 →Giải Pháp: Dual Memory Knowledge Graph
+Vấn Đề: Observability Memory bịthiếu
+Giải pháp: Tách bộnhớthành hai loại:
+K G dual = {K G semantic,K G observability}
+(2)
+Chi tiết:
+K G semantic(t) = Fixed domain knowledge
+(3)
+K G observability(t) = Updated from current sensor readings
+(4)
+Cách nó giảm ảo giác: Observability memory cấp ground truth đểagent kiểm tra dựđoán
+của mình. Nếu dựđoán không khớp sensor data, agent nhận ra là hallucination.
+3.2. Vấn Đề1 →Giải Pháp: Learnable Residual Memory Pathway (LRMP)
+Vấn Đề: Static embeddings không thích ứng ngữcảnh
+
+CAMAS: Closed-Loop Architecture
+6
+Giải pháp: Cho phép mô hình học cách chuyển đổi biểu diễn dựa trên context:
+ht = fθ(ht−1,xt)+wt ⊙pφ(ht−1,xt)
+(5)
+Chi tiết:
+• Main pathway fθ: Static part (semantic knowledge)
+• Residual pathway pφ: Dynamic part (query-specific adaptation)
+• Gating wt: Học khi nào sửdụng static vs dynamic
+Cách nó giải quyết: Mỗi query sinh ra biểu diễn khác nhau do residual pathway. "Tải
+điện"khi query dựbáo sẽkhác với query hiện tại.
+3.3. Vấn Đề2 →Giải Pháp: Hierarchical MARL + MD-MDP
+Vấn Đề: Tri thức cứng không điều ứng
+Giải pháp: Tối ưu hành động dựa trên context hiện tại chứkhông phải bằng quy tắc cố
+định:
+MMD-MDP = ⟨S ,A ,T ,R,C ,γ⟩
+(6)
+Chi tiết:
+• MD-MDP tích hợp constraints: ci(st,at) ≤0
+• Hierarchical: Master agent quyết định strategy cao cấp, worker agents thực thi
+• Context-dependent: Policy π(a|s) phụthuộc state s hiện tại
+Cách nó giải quyết: Mỗi state khác nhau →policy khác nhau. Không dùng quy tắc cốđịnh.
+3.4. Vấn Đề3 →Giải Pháp: Cooperative RLHF
+Vấn Đề: RLHF không tích hợp hard constraints
+Giải pháp: Học từphản hồi con người kèm với ràng buộc vật lý:
+Ltotal = Lpolicy +Lreward +Lconstraint
+(7)
+Chi tiết:
+Lpolicy : Maximize expected reward
+(8)
+Lreward : Fit reward model to human feedback
+(9)
+Lconstraint : Penalty if ci(s,a) > 0
+(10)
+Cách nó giải quyết: Agent không thểtối ưu reward bằng cách vi phạm constraints. Safe
+actions có reward cao, unsafe actions có penalty cao.
+
+CAMAS: Closed-Loop Architecture
+7
+3.5. Barlow Twins: Stabilization ĐểTránh Collapse
+Tại sao cần? Khi mô hình học LRMP + Dual Memory, representation có thểbịcollapse (tất cả
+nhân vật giống nhau).
+Giải pháp: Barlow Twins loss buộc representation phải đa dạng:
+LBT = ∑
+i
+(1−Cii)2 +λ ∑
+i̸=j
+C 2
+i j
+(11)
+4. Logic Vòng Lặp Khép Kín: Cách 3 Module Tương Tác
+Vòng Lặp Thực Thi
+Perception
+zt (dynamic knowledge)
+−−−−−−−−−−−−−→Coordination
+at (actions)
+−−−−−−→Environment
+(12)
+Environment
+ot+1,rt,ct (obs, reward, constraint)
+−−−−−−−−−−−−−−−−−−→Alignment
+π′ (updated policy)
+−−−−−−−−−−→Perception
+(13)
+Chi Tiết Mỗi Vòng Lặp
+Bước 1: Perception (Sinh Tri Thức Động)
+Input: Observations ot từsensors
+Quá trình:
+1. LogTransform: Chuyển ot thành semantic entities
+2. Update Observability Memory: K G observability(t) ←Update(K G observability(t −1),ot)
+3. Semantic Memory: K G semantic(t) = K G semantic(t −1) (cốđịnh)
+4. LRMP: zt ←LRMP(zt−1,ot,K G dual) (context-aware)
+5. Barlow Twins: Stabilize zt đểtránh collapse
+Output: Dynamic knowledge representation zt (tùy ngữcảnh)
+Giảm ảo giác? Có! Vì zt dựa trên Observability Memory (ground truth).
+Bước 2: Coordination (Quyết Định Hành Động)
+Input: Dynamic knowledge zt
+Quá trình:
+1. MHSAN: Agents attend to each other’s state: z′
+t ←MHSAN(zt)
+2. T-GCN: Process temporal dependencies: z′′
+t ←T-GCN(z′
+t)
+
+CAMAS: Closed-Loop Architecture
+8
+3. Hierarchical MARL + MD-MDP: Master agent quyết định action combination, workers
+thực thi
+a∗
+t = argmax
+at [r(st,at) subject to ci(st,at) ≤0]
+(14)
+Output: Actions at (tùy context current state zt)
+Tránh tri thức cứng? Có! Policy là π(a|zt), phụthuộc zt không phải quy tắc cốđịnh.
+Bước 3: Alignment (Căn Chỉnh TừPhản Hồi Con Người)
+Input: Actions at, outcomes rt,ct, human feedback ht
+Quá trình:
+1. Collect feedback: Con người đánh giá (st,at) có tốt không
+2. Train reward model: ˆrφ ←Learn(H ) từhuman feedback
+3. Update policy:
+πθ ←argmax
+π
+
+E[ˆrφ]+constraint penalty
+
+(15)
+4. Feed back: Policy mới được dùng trong Perception của next iteration
+Output: Updated policy π′ (reflect human values + constraints)
+Đảm bảo an toàn? Có! Constraint penalty buộc policy phải satisfy constraints.
+Vòng Lặp Hoàn Chỉnh
+Iteration t +1 :
+
+
+
+
+
+
+
+zt+1 = fPerception(ot+1,π′)
+at+1 = fCoordination(zt+1)
+π′′ = fAlignment(rt,ct,ht,π′)
+(16)
+5. Thiết KếThực Nghiệm – Kiểm Chứng Mỗi Module
+Logic Kiểm Chứng
+Mỗi RQ sẽđược kiểm chứng bằng ablation study:
+RQ
+Gì Được Kiểm Chứng
+Ablation
+Metric
+RQ1
+Dual Memory + LRMP giảm ảo giác
+Xóa Memory, xóa LRMP
+Hallucination Rate
+RQ2
+Hierarchical MARL + context-aware
+Xóa Hierarchical, xóa LRMP
+HHS, Adaptation
+RQ3
+CoRLHF bảo đảm an toàn
+Xóa constraint loss
+Safety Index, Profit
+
+CAMAS: Closed-Loop Architecture
+9
+Dataset – Kiểm Chứng Trên 3 Domain
+Tại sao 3 domain khác nhau? Đểchứng minh CAMAS hoạt động ngoài ra-ra, không chỉ
+specialized cho 1 domain.
+Domain
+Dataset
+Kích Thước
+Ràng Buộc Vật Lý
+Smart Grid
+IEEE 30/118/300 + EVN
+30-300 nodes
+Năng lực đường dây, cân bằng công suất
+Scheduling
+Barnes FJSP
+10-20 jobs
+Thời gian xửlý máy, deadline
+Maintenance
+MAKG + logs
+10K records
+Khoảng thời gian bảo trì, availability
+Tại sao chọn 3 domain này?
+• Smart Grid: Hard real-time, continuous state, vật lý cứng
+• FJSP: Combinatorial optimization, discrete state, manufacturing
+• Maintenance: Knowledge-based, uncertain, industrial data real
+Nếu CAMAS hoạt động trên 3 domain này, có khảnăng hoạt động trên bất kỳdomain nào
+có: (i) complex constraints, (ii) real-time demands, (iii) multi-agent coordination needs.
+6. LộTrình Thực Hiện – Xây Dựng Từng Module
+Logic Tiến Hành
+Mỗi giai đoạn xây dựng một module, test nó, rồi tích hợp:
+Giai Đoạn
+Module
+Mục Tiêu
+Test Metric
+Deliverable
+1 (Tháng 1-6)
+Perception
+Giảm ảo giác
+Hallucination ↓40%
+Paper 1
+2 (Tháng 7-14)
+Coordination
+HHS cao
+HHS ≥0.88
+Paper 2
+3 (Tháng 15-22)
+Alignment
+Safety cao
+Safety Index ≥0.98
+Paper 3
+4 (Tháng 23-42)
+Vòng lặp + Real-world
+Profit cao + Safety
+Profit ↑, Safety Index
+Paper 4
+Tại Sao Từng Giai Đoạn?
+1. Giai đoạn 1: Xây Perception, test nó độc lập. Nếu ko giảm ảo giác, không thểsang giai
+đoạn 2.
+2. Giai đoạn 2: Xây Coordination, test nó độc lập với Perception đã trained. Nếu HHS thấp,
+kiến trúc MARL cần sửa.
+3. Giai đoạn 3: Tích hợp Alignment, test vòng lặp khép kín. Nếu safety thấp, constraint
+penalty cần tăng.
+4. Giai đoạn 4: Real-world validation + publication. Nếu profit thấp, có thểtrade-off giữa
+safety vs profit.
+
+CAMAS: Closed-Loop Architecture
+10
+7. Kết QuảDựKiến
+Mapping RQ →Results
+RQ
+Module
+Expected Metric
+Significance
+RQ1
+Perception
+Hallucination Rate ↓40%
+Giai đoạn 1, Paper 1
+RQ2
+Coordination
+HHS ≥0.88
+Giai đoạn 2, Paper 2
+RQ3
+Alignment
+Safety Index ≥0.98
+Giai đoạn 3, Paper 3
+Integration
+Vòng lặp
+Profit ↑18−25%
+Giai đoạn 4, Paper 4
+Tại Sao Kết QuảNày Có ThểĐạt Được?
+1. Hallucination ↓40%: Dual Memory cấp ground truth, LRMP sinh biểu diễn tùy context,
+Barlow Twins stabilize. Lý thuyết hỗtrợ(Matharaarachchi 2026).
+2. HHS ≥0.88: Hierarchical MARL tối ưu coordination, MD-MDP integrate constraints,
+MHSAN + T-GCN process dependencies. Lý thuyết hỗtrợ(Peng & Heng 2026, Zhang
+2025).
+3. Safety Index ≥0.98: CoRLHF học từhuman feedback + constraint penalty. Lý thuyết hỗ
+trợ(Liu 2026).
+4. Profit ↑18−25%: Vòng lặp khép kín tối ưu continuous từphản hồi. Emerges từtích hợp
+3 module.
+
+CAMAS: Closed-Loop Architecture
+11
+Tài Liệu Tham Khảo
+Tài liệu
+[1] Q. Liu et al., “Cooperative Reinforcement Learning from Human Feedback,” Expert
+Systems with Applications, vol. 301, p. 130113, 2026.
+[2] A.
+Matharaarachchi
+et
+al.,
+“Addressing
+hallucinations
+through
+dual-memory
+observability,” Knowledge-Based Systems, vol. 338, p. 115469, 2026.
+[3] K. Yang et al., “Dynamic cognitive representations via learnable residual memory
+pathways,” Expert Systems with Applications, vol. 318, p. 132001, 2026.
+[4] Z. Peng and T. Heng, “Hierarchical optimization for VPP coordination,” Expert Systems
+with Applications, vol. 310, p. 131263, 2026.
+[5] Z.-Q. Zhang et al., “Multi-agent multi-head self-attention network,” Computers &
+Industrial Engineering, vol. 210, p. 111466, 2025.
+[6] J. Lin et al., “Multi-agent knowledge graph approach,” Journal of Manufacturing Systems,
+vol. 85, pp. 557–570, 2026.
+[7] W. Lu et al., “Graph reinforcement learning with T-GCN,” Int. Journal of Electrical Power,
+vol. 176, p. 111708, 2026.
